@@ -2,7 +2,7 @@
 	"name": "remote-file-browser",
 	"displayName": "Remote File Browser",
 	"description": "Browse remote files via SFTP/FTP without downloading them locally",
-	"version": "2.2.2",
+	"version": "2.2.3",
 	"publisher": "cartpauj",
 	"icon": "icon.png",
 	"repository": {
