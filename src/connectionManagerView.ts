@@ -329,6 +329,63 @@ export class ConnectionManagerView {
             opacity: 0.8;
         }
         
+        .advanced-toggle {
+            background: transparent;
+            color: var(--vscode-foreground);
+            border: none;
+            padding: 8px;
+            margin: 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            text-align: left;
+            width: auto;
+            border-radius: 3px;
+        }
+        
+        .advanced-toggle:hover {
+            background: var(--vscode-list-hoverBackground);
+        }
+        
+        .toggle-icon {
+            font-size: 12px;
+            transition: transform 0.2s ease;
+            font-family: monospace;
+        }
+        
+        .toggle-icon.expanded {
+            transform: rotate(90deg);
+        }
+        
+        .advanced-settings {
+            border-left: 3px solid var(--vscode-textBlockQuote-border);
+            padding-left: 15px;
+            margin-left: 10px;
+            margin-top: 10px;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 5px;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+            cursor: pointer;
+        }
+        
+        .checkbox-group label {
+            margin: 0;
+            font-weight: normal;
+            cursor: pointer;
+            user-select: none;
+        }
+        
         .connection-list {
             margin-top: 20px;
         }
@@ -506,6 +563,60 @@ export class ConnectionManagerView {
                     <input type="text" id="remotePath" name="remotePath" value="/" placeholder="/">
                 </div>
                 
+                <!-- Advanced Settings Toggle -->
+                <div class="form-group">
+                    <button type="button" id="advancedToggle" class="advanced-toggle">
+                        <span class="toggle-icon">▶</span>
+                        Advanced Connection Settings (Optional)
+                    </button>
+                </div>
+                
+                <!-- Advanced Connection Settings (Initially Hidden) -->
+                <div id="advancedSettings" class="advanced-settings" style="display: none;">
+                    <div class="form-group">
+                        <label for="connectionTimeout">Connection Timeout (ms):</label>
+                        <input type="number" id="connectionTimeout" name="connectionTimeout" 
+                               value="20000" min="5000" max="120000" step="1000">
+                        <small style="color: #666; font-size: 12px;">Time to wait for initial connection (5-120 seconds)</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="operationTimeout">File Operation Timeout (ms):</label>
+                        <input type="number" id="operationTimeout" name="operationTimeout" 
+                               value="60000" min="10000" max="300000" step="5000">
+                        <small style="color: #666; font-size: 12px;">Time to wait for file operations (10-300 seconds)</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="maxRetries">Max Retry Attempts:</label>
+                        <input type="number" id="maxRetries" name="maxRetries" 
+                               value="3" min="1" max="10" step="1">
+                        <small style="color: #666; font-size: 12px;">Number of retry attempts on connection failure</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="retryDelay">Retry Base Delay (ms):</label>
+                        <input type="number" id="retryDelay" name="retryDelay" 
+                               value="1000" min="500" max="10000" step="500">
+                        <small style="color: #666; font-size: 12px;">Base delay between retries (uses exponential backoff)</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="enableKeepAlive" name="enableKeepAlive" checked>
+                            <label for="enableKeepAlive">Enable Keep-Alive</label>
+                        </div>
+                        <small style="color: #666; font-size: 12px;">Automatically ping server to maintain connection</small>
+                    </div>
+                    
+                    <div class="form-group" id="keepAliveGroup">
+                        <label for="keepAliveInterval">Keep-Alive Interval (ms):</label>
+                        <input type="number" id="keepAliveInterval" name="keepAliveInterval" 
+                               value="30000" min="10000" max="300000" step="5000">
+                        <small style="color: #666; font-size: 12px;">How often to ping the server (10-300 seconds)</small>
+                    </div>
+                </div>
+                
                 <div class="button-group">
                     <button type="submit" id="submitBtn">Add Connection</button>
                     <button type="button" id="cancelBtn" style="display: none;">Cancel</button>
@@ -555,7 +666,14 @@ export class ConnectionManagerView {
                 remotePath: formData.get('remotePath') || '/',
                 authType: formData.get('authType'),
                 keyPath: formData.get('keyPath'),
-                passphrase: formData.get('passphrase')
+                passphrase: formData.get('passphrase'),
+                // Advanced connection settings
+                connectionTimeout: formData.get('connectionTimeout') ? parseInt(formData.get('connectionTimeout')) : undefined,
+                operationTimeout: formData.get('operationTimeout') ? parseInt(formData.get('operationTimeout')) : undefined,
+                maxRetries: formData.get('maxRetries') ? parseInt(formData.get('maxRetries')) : undefined,
+                retryDelay: formData.get('retryDelay') ? parseInt(formData.get('retryDelay')) : undefined,
+                enableKeepAlive: formData.get('enableKeepAlive') === 'on',
+                keepAliveInterval: formData.get('keepAliveInterval') ? parseInt(formData.get('keepAliveInterval')) : undefined
             };
 
             if (editingIndex >= 0) {
@@ -583,10 +701,20 @@ export class ConnectionManagerView {
         // Protocol change handler
         document.getElementById('protocol').addEventListener('change', (e) => {
             const port = document.getElementById('port');
+            const connectionTimeout = document.getElementById('connectionTimeout');
+            
             if (e.target.value === 'sftp') {
                 port.value = '22';
+                // Only update timeout if it's still at the default value
+                if (connectionTimeout.value === '30000' || connectionTimeout.value === '') {
+                    connectionTimeout.value = '20000';
+                }
             } else if (e.target.value === 'ftp') {
                 port.value = '21';
+                // Only update timeout if it's still at the default value
+                if (connectionTimeout.value === '20000' || connectionTimeout.value === '') {
+                    connectionTimeout.value = '30000';
+                }
             }
         });
 
@@ -601,6 +729,33 @@ export class ConnectionManagerView {
             } else {
                 keyPathGroup.style.display = 'none';
                 passphraseGroup.style.display = 'none';
+            }
+        });
+
+        // Keep-alive checkbox change handler
+        document.getElementById('enableKeepAlive').addEventListener('change', (e) => {
+            const keepAliveGroup = document.getElementById('keepAliveGroup');
+            
+            if (e.target.checked) {
+                keepAliveGroup.style.display = 'block';
+            } else {
+                keepAliveGroup.style.display = 'none';
+            }
+        });
+
+        // Advanced settings toggle handler
+        document.getElementById('advancedToggle').addEventListener('click', () => {
+            const advancedSettings = document.getElementById('advancedSettings');
+            const toggleIcon = document.querySelector('.toggle-icon');
+            
+            if (advancedSettings.style.display === 'none') {
+                advancedSettings.style.display = 'block';
+                toggleIcon.textContent = '▼';
+                toggleIcon.classList.add('expanded');
+            } else {
+                advancedSettings.style.display = 'none';
+                toggleIcon.textContent = '▶';
+                toggleIcon.classList.remove('expanded');
             }
         });
 
@@ -672,9 +827,35 @@ export class ConnectionManagerView {
             document.getElementById('keyPath').value = conn.keyPath || '';
             document.getElementById('passphrase').value = conn.passphrase || '';
 
+            // Advanced connection settings - show defaults if not set
+            const protocolDefault = conn.protocol === 'ftp' ? '30000' : '20000';
+            document.getElementById('connectionTimeout').value = conn.connectionTimeout || protocolDefault;
+            document.getElementById('operationTimeout').value = conn.operationTimeout || '60000';
+            document.getElementById('maxRetries').value = conn.maxRetries || '3';
+            document.getElementById('retryDelay').value = conn.retryDelay || '1000';
+            document.getElementById('enableKeepAlive').checked = conn.enableKeepAlive !== false; // Default to true
+            document.getElementById('keepAliveInterval').value = conn.keepAliveInterval || '30000';
+
             // Trigger auth type change to show/hide fields
             const authTypeEvent = new Event('change');
             document.getElementById('authType').dispatchEvent(authTypeEvent);
+
+            // Trigger keep-alive change to show/hide interval field
+            const keepAliveEvent = new Event('change');
+            document.getElementById('enableKeepAlive').dispatchEvent(keepAliveEvent);
+
+            // Show advanced settings if any non-default values are configured
+            const hasAdvancedSettings = conn.connectionTimeout || conn.operationTimeout || 
+                                       conn.maxRetries || conn.retryDelay || 
+                                       conn.keepAliveInterval || conn.enableKeepAlive === false;
+            
+            if (hasAdvancedSettings) {
+                const advancedSettings = document.getElementById('advancedSettings');
+                const toggleIcon = document.querySelector('.toggle-icon');
+                advancedSettings.style.display = 'block';
+                toggleIcon.textContent = '▼';
+                toggleIcon.classList.add('expanded');
+            }
 
             document.getElementById('connectionForm').scrollIntoView({ behavior: 'smooth' });
         }
@@ -705,9 +886,27 @@ export class ConnectionManagerView {
             document.getElementById('remotePath').value = '/';
             document.getElementById('authType').value = 'password';
             
+            // Reset advanced connection settings to defaults
+            document.getElementById('connectionTimeout').value = '20000'; // Default for SFTP
+            document.getElementById('operationTimeout').value = '60000';
+            document.getElementById('maxRetries').value = '3';
+            document.getElementById('retryDelay').value = '1000';
+            document.getElementById('enableKeepAlive').checked = true;
+            document.getElementById('keepAliveInterval').value = '30000';
+            
             // Hide SSH key fields
             document.getElementById('keyPathGroup').style.display = 'none';
             document.getElementById('passphraseGroup').style.display = 'none';
+            
+            // Show keep-alive interval field (since keep-alive is checked by default)
+            document.getElementById('keepAliveGroup').style.display = 'block';
+            
+            // Hide advanced settings section
+            const advancedSettings = document.getElementById('advancedSettings');
+            const toggleIcon = document.querySelector('.toggle-icon');
+            advancedSettings.style.display = 'none';
+            toggleIcon.textContent = '▶';
+            toggleIcon.classList.remove('expanded');
         }
     </script>
 </body>

@@ -86,6 +86,28 @@
 				"command": "remoteFileBrowser.connectFromWelcome",
 				"title": "Connect from Welcome",
 				"category": "Remote File Browser"
+			},
+			{
+				"command": "remoteFileBrowser.pushToRemote",
+				"title": "Push to Remote",
+				"category": "Remote File Browser",
+				"icon": "$(cloud-upload)"
+			},
+			{
+				"command": "remoteFileBrowser.navigateToParent",
+				"title": "Go to Parent Directory",
+				"category": "Remote File Browser",
+				"icon": "$(arrow-up)"
+			},
+			{
+				"command": "remoteFileBrowser.deleteFile",
+				"title": "Delete",
+				"category": "Remote File Browser"
+			},
+			{
+				"command": "remoteFileBrowser.renameFile",
+				"title": "Rename",
+				"category": "Remote File Browser"
 			}
 		],
 		"viewsContainers": {
@@ -114,6 +136,11 @@
 		"menus": {
 			"view/title": [
 				{
+					"command": "remoteFileBrowser.navigateToParent",
+					"when": "view == remoteFilesList && remoteFileBrowser.canNavigateUp",
+					"group": "navigation"
+				},
+				{
 					"command": "remoteFileBrowser.refresh",
 					"when": "view == remoteFilesList",
 					"group": "navigation"
@@ -127,6 +154,35 @@
 					"command": "remoteFileBrowser.cleanupTempFiles",
 					"when": "view == remoteFilesList",
 					"group": "navigation"
+				}
+			],
+			"editor/title/context": [
+				{
+					"command": "remoteFileBrowser.pushToRemote",
+					"when": "remoteFileBrowser.connected && resourceScheme == file",
+					"group": "9_cutcopypaste"
+				}
+			],
+			"view/item/context": [
+				{
+					"command": "remoteFileBrowser.renameFile",
+					"when": "view == remoteFilesList && viewItem == file",
+					"group": "1_modification"
+				},
+				{
+					"command": "remoteFileBrowser.deleteFile",
+					"when": "view == remoteFilesList && viewItem == file",
+					"group": "2_danger"
+				},
+				{
+					"command": "remoteFileBrowser.renameFile",
+					"when": "view == remoteFilesList && viewItem == directory",
+					"group": "1_modification"
+				},
+				{
+					"command": "remoteFileBrowser.deleteFile",
+					"when": "view == remoteFilesList && viewItem == directory",
+					"group": "2_danger"
 				}
 			],
 			"commandPalette": [
@@ -148,6 +204,10 @@
 				},
 				{
 					"command": "remoteFileBrowser.connectFromWelcome"
+				},
+				{
+					"command": "remoteFileBrowser.pushToRemote",
+					"when": "remoteFileBrowser.connected"
 				}
 			]
 		},

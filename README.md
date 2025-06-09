@@ -37,12 +37,40 @@ A VSCode/Cursor extension that lets you browse and edit remote files via SFTP/FT
 - Once connected, browse files in the **"Remote Files"** tree view
 - Folders show first, then files (both alphabetically sorted)
 - Double-click any file to open and edit it
+- Use the **arrow-up button** (⬆️) in the toolbar to navigate to parent directories
+- Select directories in the tree to use as upload destinations for local files
 
 ### Editing Files
 - Files open instantly in your editor
 - Make changes and save normally (`Ctrl+S` / `Cmd+S`)
 - Changes are automatically uploaded to the remote server
 - You'll see a confirmation message when upload completes
+
+### Uploading Local Files to Remote Server
+- Open any local file in VSCode/Cursor
+- **Right-click on the file tab** at the top of the editor
+- Select **"Push to Remote"** from the context menu
+- The file will be uploaded to the currently selected directory in the remote tree
+- **Note**: You must first select a directory in the remote file tree as the upload destination
+
+### Renaming and Deleting Remote Files
+You can rename or delete files and directories directly on the remote server:
+
+#### Renaming Files or Directories
+1. **Right-click** on any file or directory in the remote file tree
+2. Select **"Rename"** from the context menu
+3. Enter the new name in the input box that appears
+4. Press **Enter** to confirm or **Escape** to cancel
+5. The file or directory will be renamed on the remote server
+
+#### Deleting Files or Directories
+1. **Right-click** on any file or directory in the remote file tree
+2. Select **"Delete"** from the context menu
+3. **Confirm the deletion** in the warning dialog that appears
+4. For directories: You'll be warned that all contents will be deleted recursively
+5. The file or directory will be permanently deleted from the remote server
+
+**⚠️ Warning**: Deleted files and directories cannot be recovered. Use caution when deleting.
 
 ### Switching Servers
 - Click the **X** (disconnect) button in the remote files view
@@ -69,6 +97,37 @@ A VSCode/Cursor extension that lets you browse and edit remote files via SFTP/FT
 - **View Temp Files**: Click **"💻 View tmp files in shell"** to see downloaded files
 - **Clean Up**: Click **"🗑️ Clean Up Temp Files"** to delete all temporary files
 
+## Navigation and File Upload Features
+
+### Parent Directory Navigation
+- **Button Access**: Click the **arrow-up button** (⬆️) in the remote files toolbar to go up one directory level
+- **Command Palette**: Use `Ctrl+Shift+P` / `Cmd+Shift+P` → "Remote File Browser: Go to Parent Directory"
+- **Quick Navigation**: Navigate from `/var/www/html/` to `/var/www/` to `/var/` to `/` (root)
+- **Context Aware**: Button only appears when navigation up is possible (not at root directory)
+
+### Push Local Files to Remote Server
+Follow these steps to upload local files to your remote server:
+
+1. **Select Destination Directory**:
+   - In the remote file tree, **click on a folder** to select it as your upload destination
+   - The selected folder will be highlighted
+
+2. **Upload a Local File**:
+   - Open any local file in VSCode/Cursor 
+   - **Right-click on the file tab** (the tab at the top showing the file name)
+   - Select **"Push to Remote"** from the context menu
+   - The file will be uploaded to your selected remote directory
+
+3. **View Progress**:
+   - You'll see a progress indicator during upload
+   - Success message: "Successfully pushed filename.txt to /remote/path/"
+   - The remote file tree will refresh to show your uploaded file
+
+**Requirements**:
+- Must be connected to a remote server
+- Must have a directory selected in the remote file tree
+- Local file must exist and be readable
+
 ## Advanced Features
 
 ### Command Palette Commands
@@ -80,6 +139,10 @@ Access these via `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (Mac):
 - **Remote File Browser: Clean Up Temporary Files** - Delete temp files
 - **Remote File Browser: Disconnect from Remote Server** - Close current connection
 - **Remote File Browser: Refresh** - Reload remote file tree
+- **Remote File Browser: Push to Remote** - Upload current local file to selected remote directory
+- **Remote File Browser: Go to Parent Directory** - Navigate up one directory level
+- **Remote File Browser: Rename File** - Rename selected file or directory on remote server
+- **Remote File Browser: Delete File** - Delete selected file or directory from remote server
 
 ### Settings Configuration
 Advanced users can directly edit settings in VSCode/Cursor settings:
@@ -100,11 +163,21 @@ Example configuration:
       "username": "deploy",
       "remotePath": "/var/www",
       "authType": "key",
-      "keyPath": "/home/user/.ssh/id_rsa"
+      "keyPath": "/home/user/.ssh/id_rsa",
+      "connectionTimeout": 25000,
+      "operationTimeout": 90000,
+      "maxRetries": 5,
+      "enableKeepAlive": true
     }
   ]
 }
 ```
+
+**Note**: All advanced timeout and retry parameters are optional. If not specified, sensible defaults are used:
+- Connection timeouts: 20s (SFTP) / 30s (FTP)
+- Operation timeout: 60s
+- Max retries: 3 attempts with exponential backoff
+- Keep-alive: Enabled with 30s intervals
 
 ## How Temporary Files Work
 

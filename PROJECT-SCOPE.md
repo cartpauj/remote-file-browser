@@ -20,14 +20,24 @@ This extension is designed to work seamlessly across all major operating systems
     - PuTTY .ppk file format (with automatic conversion)
 - **Secure Credential Storage**: Uses VSCode's SecretStorage API (system keychain)
 - **Connection Persistence**: Saved connections with optional secure password storage
+- **Advanced Connection Timeout & Error Handling**:
+  - **Configurable Connection Timeouts**: User-customizable timeouts for both SFTP (default: 20s) and FTP (default: 30s) connections
+  - **Operation-Specific Timeouts**: Separate configurable timeout for file operations (default: 60s) vs. connection establishment
+  - **Enhanced Retry Strategy**: Exponential backoff with configurable retry attempts (default: 3) and base delay (default: 1s)
+  - **Smart Keep-Alive Mechanisms**: Automatic connection health monitoring with configurable ping intervals (default: 30s)
+  - **Comprehensive Error Detection**: Handles 16+ error patterns including network errors (ECONNRESET, ETIMEDOUT), FTP timeouts, and SSH failures
+  - **Connection Health Monitoring**: Tracks uptime, success/failure rates, last operation times, and keep-alive status
+  - **Operation-Level Recovery**: Failed operations automatically retry with exponential backoff after successful reconnection
+  - **Graceful Disconnection**: Clean connection cleanup and comprehensive state management
 
 ### 2. User Interface
 - **Activity Bar Integration**: Globe icon (🌐) in main activity bar for prominent access
 - **Welcome Screen**: Dynamic tree view showing recent connections when disconnected
 - **Recent Connections**: Collapsible section showing up to 10 most recent connections
 - **Click Protection**: Prevents multiple connection attempts with visual feedback
-- **Remote File Tree**: Hierarchical view of remote files and folders
+- **Remote File Tree**: Hierarchical view of remote files and folders with parent directory navigation
 - **File Sorting**: Folders first (alphabetically), then files (alphabetically)
+- **Navigation Controls**: Parent directory button with arrow-up icon for moving up directory levels
 
 ### 3. Connection Manager GUI
 - **Visual Connection Manager**: Web-based interface for managing server connections
@@ -35,6 +45,12 @@ This extension is designed to work seamlessly across all major operating systems
 - **SSH Key File Browser**: Browse and select SSH key files using native file dialog
   - Supports OpenSSH private keys (.key, .pem, .openssh)
   - Supports PuTTY private keys (.ppk) with automatic format conversion
+- **Advanced Connection Settings**: Optional timeout and retry configuration with:
+  - Connection timeout (5-120 seconds)
+  - File operation timeout (10-300 seconds)
+  - Max retry attempts (1-10)
+  - Retry base delay (0.5-10 seconds)
+  - Keep-alive toggle and interval (10-300 seconds)
 - **Connection Actions**: Connect, Edit, Delete buttons for each saved connection
 - **Temp File Management**: View and clean up temporary files via shell interface
 
@@ -46,6 +62,11 @@ This extension is designed to work seamlessly across all major operating systems
 - **Auto-sync on Save**: Changes automatically uploaded to remote server when file is saved
 - **File Watcher**: Monitors local temp files for changes and syncs back
 - **Manual Cleanup**: User-controlled cleanup via dedicated commands and GUI buttons
+- **Push to Remote**: Right-click local file tabs to upload files to selected remote directories
+- **Parent Directory Navigation**: Navigate up directory levels with dedicated toolbar button
+- **Right-click File Operations**: Context menu on remote files and directories with:
+  - **Rename**: Rename files and directories on the remote server with validation
+  - **Delete**: Delete files and directories from the remote server with confirmation prompts and recursive directory support
 
 ### 5. Security Features
 - **Secure Credential Storage**: Passwords/passphrases stored in OS keychain
@@ -84,9 +105,10 @@ src/
 
 ### Extension Configuration
 - **View Container**: Custom activity bar container with globe icon
-- **Commands**: Connect, disconnect, refresh, manage connections, cleanup temp files
+- **Commands**: Connect, disconnect, refresh, manage connections, cleanup temp files, push to remote, navigate to parent
 - **Views**: Welcome view (disconnected) and file tree view (connected)
-- **Menu Contributions**: Refresh, disconnect, and cleanup buttons in view title
+- **Menu Contributions**: Parent navigation, refresh, disconnect, and cleanup buttons in view title
+- **Context Menus**: "Push to Remote" option in editor tab right-click menu for local files
 - **Cross-platform Compatibility**: Intelligent OS detection for temp file management
 
 ## User Workflows
@@ -104,10 +126,12 @@ src/
 1. Click globe icon
 2. If disconnected, see recent connections in welcome screen
 3. Click any recent connection (uses stored credentials if available)
-4. Browse files in tree view
+4. Browse files in tree view with parent directory navigation
 5. Double-click files to open and edit
 6. Save files to auto-sync changes
-7. Use disconnect button (X) to switch servers
+7. Right-click local file tabs to "Push to Remote" when needed
+8. Use parent directory button (arrow-up) to navigate up directory levels
+9. Use disconnect button (X) to switch servers
 
 ### Connection Management
 - **Add**: Form-based creation with file browser for SSH keys
@@ -180,6 +204,23 @@ src/
 - Simplified connection manager code from 19KB to 6.65KB source
 - Improved performance by removing 30+ packages from dependency tree
 
+### Phase 10: Enhanced File Operations and Navigation
+- **Push to Remote Feature**: Added right-click context menu on local file tabs to upload files to selected remote directories
+- **Directory Selection Tracking**: Implemented tree view selection tracking to determine upload destination
+- **Parent Directory Navigation**: Added toolbar button with arrow-up icon for navigating up directory levels
+- **Navigation State Management**: Fixed currentDirectory initialization and first-click navigation issues
+- **Improved User Experience**: Enhanced file transfer workflows with progress indicators and error handling
+- **Context-Aware Operations**: File operations now consider selected directories and current navigation state
+
+### Phase 11: Advanced Connection Management and Reliability
+- **Configurable Timeouts**: Added user-customizable connection and operation timeouts for both SFTP and FTP protocols
+- **Enhanced Retry Strategy**: Implemented exponential backoff with configurable retry attempts and base delays
+- **Smart Keep-Alive System**: Automatic connection health monitoring with configurable ping intervals to prevent idle disconnections
+- **Operation-Specific Timeouts**: Separate timeout controls for connection establishment vs. file operations
+- **Connection Health Monitoring**: Comprehensive tracking of uptime, success/failure rates, and connection status
+- **Advanced Connection Manager UI**: Extended form with optional timeout and retry configuration settings
+- **Robust Error Recovery**: Improved operation-level recovery with intelligent reconnection and health status tracking
+
 ## Configuration Schema
 ```json
 {
@@ -192,11 +233,39 @@ src/
       "username": "username",
       "remotePath": "/",
       "authType": "password|key",
-      "keyPath": "/path/to/ssh/key"
+      "keyPath": "/path/to/ssh/key",
+      "connectionTimeout": 20000,
+      "operationTimeout": 60000,
+      "maxRetries": 3,
+      "retryDelay": 1000,
+      "enableKeepAlive": true,
+      "keepAliveInterval": 30000
     }
   ]
 }
 ```
+
+### Configuration Options
+**All advanced parameters are optional with sensible defaults when left blank:**
+
+- **connectionTimeout**: Connection timeout in milliseconds
+  - *Default*: 20,000ms (20s) for SFTP, 30,000ms (30s) for FTP
+  - *Range*: 5,000-120,000ms (5-120 seconds)
+- **operationTimeout**: File operation timeout in milliseconds  
+  - *Default*: 60,000ms (60s)
+  - *Range*: 10,000-300,000ms (10-300 seconds)
+- **maxRetries**: Maximum retry attempts on connection failure
+  - *Default*: 3 attempts
+  - *Range*: 1-10 attempts  
+- **retryDelay**: Base delay between retries in milliseconds (uses exponential backoff)
+  - *Default*: 1,000ms (1s)
+  - *Range*: 500-10,000ms (0.5-10 seconds)
+- **enableKeepAlive**: Enable automatic connection health monitoring
+  - *Default*: true (enabled)
+  - *Options*: true/false
+- **keepAliveInterval**: Keep-alive ping interval in milliseconds
+  - *Default*: 30,000ms (30s)  
+  - *Range*: 10,000-300,000ms (10-300 seconds)
 
 ## Security Considerations
 - Credentials stored using VSCode SecretStorage API
@@ -239,6 +308,14 @@ This fix prevents data loss scenarios where:
 - Files could be uploaded to wrong environments without user awareness
 
 ## Future Enhancement Opportunities
+
+### Connection & Performance Improvements
+- **Connection Pool Management**: Multiple simultaneous operations with connection lifecycle management
+- **Connection Health Dashboard**: Visual dashboard showing connection metrics, uptime, and failure rates
+- **Advanced Connection Profiles**: Server-specific connection settings and environment configurations
+- **Connection Load Balancing**: Multiple server endpoints with automatic failover
+
+### User Interface & Workflow
 - Connection testing functionality
 - Transfer progress indicators for large files
 - Multiple file operations (copy, move, delete)
@@ -250,6 +327,10 @@ This fix prevents data loss scenarios where:
 - Enhanced terminal interface features for temp file access
 - Batch file operations and multi-selection support
 - Connection grouping and organization features
+- Directory creation and deletion from tree view
+- Bulk file upload (drag and drop multiple files)
+- File permissions management in remote directories
+- Breadcrumb navigation for current directory path
 
 ### Multi-Window Safety Improvements
 - **Window-Specific Temp Directories**: Use window/instance identifiers in temp paths to prevent conflicts (`/tmp/remote-file-browser/window-${id}/user-at-server-22/`)

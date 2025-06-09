@@ -5,6 +5,37 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2025-06-09
+
+### Added
+- **Advanced Connection Management**: Comprehensive timeout and retry configuration for both SFTP and FTP protocols
+- **Configurable Connection Timeouts**: User-customizable timeouts (20s SFTP, 30s FTP defaults) with 5-120 second range
+- **Operation-Specific Timeouts**: Separate timeout controls for file operations (10-300 seconds, 60s default)
+- **Enhanced Retry Strategy**: Exponential backoff with configurable attempts (1-10, default 3) and base delay (0.5-10s, default 1s)
+- **Smart Keep-Alive System**: Automatic connection health monitoring with configurable ping intervals (10-300s, default 30s)
+- **Connection Health Monitoring**: Real-time tracking of uptime, success/failure rates, consecutive failures, and connection status
+- **Right-Click File Management**: Context menu options for renaming and deleting files/directories on remote servers
+- **Push to Remote**: Right-click on local file tabs to upload files to selected remote directories
+- **Collapsible Advanced Settings**: Clean UI with expandable advanced configuration section in connection manager
+- **Professional Form Styling**: Improved checkbox styling and form layout with VS Code theme integration
+
+### Enhanced
+- **Connection Manager UI**: Extended form with optional advanced timeout and retry configuration settings
+- **Protocol-Aware Defaults**: Different default timeouts for SFTP vs FTP based on typical usage patterns
+- **Smart Form Behavior**: Auto-populates defaults, protocol-aware timeout switching, and intelligent expansion of advanced settings
+- **Comprehensive Error Recovery**: Improved operation-level recovery with intelligent reconnection and health status tracking
+- **Cross-Platform Reliability**: Enhanced connection stability across Windows, macOS, and Linux platforms
+
+### Improved
+- **Connection Reliability**: Robust error handling with 16+ error pattern detection including network and protocol-specific failures
+- **User Experience**: Form shows sensible defaults, smooth transitions, and prevents layout jumping on hover
+- **Documentation**: Updated PROJECT-SCOPE.md and README.md with comprehensive configuration guidance
+
+### Technical
+- **Performance Optimization**: Operation timeout wrapper for all file operations with automatic success/failure tracking
+- **Health Status API**: New `getConnectionHealth()` method providing detailed connection metrics
+- **Backward Compatibility**: Existing connections seamlessly upgraded with new reliability features
+
 ## [2.2.3] - 2025-06-09
 
 ### Changed
