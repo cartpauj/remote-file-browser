@@ -1,7 +1,6 @@
 import * as SftpClient from 'ssh2-sftp-client';
 import { Client as FtpClient } from 'basic-ftp';
 import * as fs from 'fs';
-import * as sshpk from 'sshpk';
 
 export interface ConnectionConfig {
     protocol: 'sftp' | 'ftp';
@@ -102,11 +101,6 @@ export class ConnectionManager {
     private async connectSftp(): Promise<void> {
         if (!this.config) throw new Error('No configuration provided');
 
-        console.log('Connecting to SFTP:', {
-            host: this.config.host,
-            port: this.config.port,
-            username: this.config.username
-        });
 
         this.sftpClient = new SftpClient();
         try {
@@ -123,54 +117,28 @@ export class ConnectionManager {
                 try {
                     const keyData = fs.readFileSync(this.config.keyPath, 'utf8');
                     
-                    // Check if it's a PuTTY .ppk file and convert to OpenSSH format
+                    // Check if it's a PuTTY .ppk file and use ssh2-sftp-client's built-in PPK support
                     if (keyData.startsWith('PuTTY-User-Key-File-')) {
-                        console.log('Detected PuTTY .ppk file, converting to OpenSSH format');
-                        try {
-                            // Parse PPK file with better error handling
-                            const parseOptions: any = { filename: this.config.keyPath };
-                            if (this.config.passphrase) {
-                                parseOptions.passphrase = this.config.passphrase;
-                            }
-                            
-                            const key = sshpk.parseKey(keyData, 'putty', parseOptions);
-                            connectOptions.privateKey = key.toString('openssh');
-                            console.log('Successfully converted .ppk file to OpenSSH format');
-                        } catch (ppkError) {
-                            console.error('PPK parsing error details:', ppkError);
-                            throw new Error(`Failed to convert PuTTY .ppk file: ${ppkError}. Ensure the file is a valid PuTTY private key and the passphrase is correct.`);
+                        
+                        // ssh2-sftp-client (which uses ssh2) can handle PPK files directly
+                        // Just pass the raw PPK data and passphrase
+                        connectOptions.privateKey = keyData;
+                        if (this.config.passphrase) {
+                            connectOptions.passphrase = this.config.passphrase;
                         }
                     } else {
-                        // Try to parse as standard OpenSSH/PEM key first
-                        try {
-                            console.log('Attempting to parse as OpenSSH/PEM key');
-                            const parseOptions: any = { filename: this.config.keyPath };
-                            if (this.config.passphrase) {
-                                parseOptions.passphrase = this.config.passphrase;
-                            }
-                            
-                            // Validate key format before using
-                            const key = sshpk.parseKey(keyData, 'auto', parseOptions);
-                            connectOptions.privateKey = key.toString('openssh');
-                            console.log('Successfully parsed key as OpenSSH format');
-                        } catch (parseError) {
-                            console.error('Key parsing error:', parseError);
-                            // Fallback to raw key data if sshpk fails
-                            console.log('Falling back to raw key data');
-                            connectOptions.privateKey = keyData;
-                            if (this.config.passphrase) {
-                                connectOptions.passphrase = this.config.passphrase;
-                            }
+                        // For standard OpenSSH/PEM keys, use raw key data
+                        connectOptions.privateKey = keyData;
+                        if (this.config.passphrase) {
+                            connectOptions.passphrase = this.config.passphrase;
                         }
                     }
-                    console.log('Using SSH key authentication');
                 } catch (keyError) {
                     throw new Error(`Failed to process SSH key from ${this.config.keyPath}: ${keyError}`);
                 }
             } else {
                 // Password authentication
                 connectOptions.password = this.config.password;
-                console.log('Using password authentication');
             }
 
             await this.sftpClient.connect(connectOptions);
@@ -183,11 +151,6 @@ export class ConnectionManager {
     private async connectFtp(): Promise<void> {
         if (!this.config) throw new Error('No configuration provided');
 
-        console.log('Connecting to FTP:', {
-            host: this.config.host,
-            port: this.config.port,
-            username: this.config.username
-        });
 
         this.ftpClient = new FtpClient();
         try {

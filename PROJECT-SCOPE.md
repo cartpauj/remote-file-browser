@@ -69,13 +69,11 @@ src/
 ### Key Dependencies
 
 #### Runtime Dependencies
-- `ssh2-sftp-client` (^9.1.0): SFTP client library for SSH file transfers
+- `ssh2-sftp-client` (^9.1.0): SFTP client library with native PPK support for SSH file transfers
 - `basic-ftp` (^5.0.3): FTP client library for FTP connections
-- `sshpk` (^1.18.0): SSH key parsing and format conversion (supports PuTTY .ppk files)
 
 #### Development Dependencies
 - `@types/ssh2-sftp-client` (^9.0.4): TypeScript definitions for SFTP client
-- `@types/sshpk` (^1.17.4): TypeScript definitions for sshpk library
 - `@types/vscode` (^1.74.0): VSCode extension API TypeScript definitions
 - `@types/node` (16.x): Node.js TypeScript definitions
 - `typescript` (^4.9.4): TypeScript compiler
@@ -167,12 +165,20 @@ src/
 - Prevented data loss scenarios in multi-server development workflows
 
 ### Phase 8: Enhanced SSH Key Support
-- Added PuTTY .ppk file format support with automatic conversion to OpenSSH
-- Integrated `sshpk` library for robust SSH key parsing and format detection
+- Added PuTTY .ppk file format support with direct ssh2 library integration
+- Removed `sshpk` library dependency in favor of native ssh2 PPK support
 - Enhanced file browser filters to include .ppk files alongside OpenSSH formats
-- Implemented transparent .ppk to OpenSSH conversion without breaking existing functionality
-- Added proper TypeScript definitions for improved development experience
+- Implemented direct PPK file handling without format conversion overhead
+- Simplified codebase by leveraging ssh2-sftp-client's built-in PPK capabilities
 - Maintained backward compatibility with existing OpenSSH private key workflows
+
+### Phase 9: Code Optimization and Cleanup
+- Removed unnecessary sshpk dependency and @types/sshpk dev dependency
+- Eliminated complex PPK parsing code in favor of direct ssh2 integration
+- Removed debug console.log statements and vestigial TODO comments
+- Reduced bundle size from 279KB to 237KB (42KB reduction)
+- Simplified connection manager code from 19KB to 6.65KB source
+- Improved performance by removing 30+ packages from dependency tree
 
 ## Configuration Schema
 ```json
@@ -196,8 +202,8 @@ src/
 - Credentials stored using VSCode SecretStorage API
 - SSH keys read from disk only during connection
 - No credential caching in memory beyond connection duration
-- PuTTY .ppk files automatically converted to OpenSSH format in memory (not persisted)
-- SSH key format conversion happens securely without writing temporary files
+- PuTTY .ppk files handled natively by ssh2 library without format conversion
+- SSH key processing happens securely in memory without temporary file creation
 - Temporary files organized in connection-specific directories with sanitized names
 - Manual cleanup of temporary files and watchers prevents sensitive data accumulation
 - Cross-platform filesystem safety with character sanitization for folder names
@@ -330,7 +336,7 @@ Essential files for the repository:
 
 The extension uses **webpack bundling** for optimal performance and minimal package size:
 
-- **Bundle Size**: Reduced from 6.2MB (573 files) to 211KB (16 files) - 97% size reduction
+- **Bundle Size**: Reduced from 6.2MB (573 files) to 237KB (18 files) - 96% size reduction
 - **Build Process**: TypeScript → Webpack → Minified Bundle
 - **Dependencies**: Native binary modules handled via node-loader
 - **Exclusions**: Source files, tests, and dev dependencies excluded via `.vscodeignore`

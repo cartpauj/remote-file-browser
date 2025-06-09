@@ -69,7 +69,6 @@ export class ConnectionManagerView {
                 break;
 
             case 'testConnection':
-                // TODO: Add connection testing
                 vscode.window.showInformationMessage('Connection test feature coming soon');
                 break;
 
