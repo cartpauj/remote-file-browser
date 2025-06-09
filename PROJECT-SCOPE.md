@@ -410,6 +410,12 @@ The extension uses TypeScript source files that must be compiled to JavaScript b
 
 **⚠️ IMPORTANT: Ensure all changes are committed to git before starting the release process!**
 
+**🚨 CRITICAL REMINDER: VSCode extensions require TWO publishing steps:**
+1. **Git Release**: `npm version patch` + `git push --tags` (version control)
+2. **Marketplace Release**: `vsce publish` (make available to users)
+
+**Both steps are required for a complete release!**
+
 #### Pre-Release Checklist
 ```bash
 # 1. Check git status - must be clean before release
@@ -464,7 +470,7 @@ git commit -m "Description of changes"
    npm version minor    # For new features: 2.1.0 → 2.2.0
    npm version major    # For breaking changes: 2.1.0 → 3.0.0
    
-   # Then publish to marketplace
+   # ⚠️ CRITICAL: Don't forget to publish to marketplace after git push!
    vsce publish
    
    # Option B: Direct vsce publish with version bump
@@ -488,10 +494,22 @@ git commit -m "Description of changes"
    # Push version tags and commits to remote
    git push origin main --tags
    
+   # ⚠️ CRITICAL: Must publish to marketplace after git operations!
+   vsce publish
+   
    # Verify the release
    git log --oneline -5  # Check recent commits
    git tag --sort=-version:refname | head -5  # Check recent tags
    ```
+
+#### ✅ Release Completion Checklist
+- [ ] Code changes committed to git
+- [ ] CHANGELOG.md updated with release notes
+- [ ] `npm version patch/minor/major` executed
+- [ ] `git push origin main --tags` completed
+- [ ] **`vsce publish` executed** (CRITICAL - don't forget!)
+- [ ] Marketplace URL shows new version (may take a few minutes)
+- [ ] Extension available for user updates
 
 ### Files Updated Automatically
 - `package.json` - Version field updated by vsce
