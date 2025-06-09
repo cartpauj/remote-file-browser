@@ -31,7 +31,7 @@ A VSCode/Cursor extension that lets you browse and edit remote files via SFTP/FT
 ### Quick Connect
 - Click the globe icon (🌐) to see your recent connections
 - Expand **"Recent Connections"** to see up to 10 saved servers
-- Click any connection name to connect instantly
+- **Single-click** any connection name to connect instantly (double-clicking is not necessary)
 
 ### Browsing Files
 - Once connected, browse files in the **"Remote Files"** tree view
