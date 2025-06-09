@@ -13,9 +13,19 @@ let connectionManagerView: ConnectionManagerView;
 let credentialManager: CredentialManager;
 let welcomeViewProvider: WelcomeViewProvider;
 
-// Global file watchers storage
+// Global file watchers storage with connection tracking
+interface FileWatcherInfo {
+    disposable: any;
+    connectionId: string;
+    remotePath: string;
+}
+
 declare global {
-    var remoteFileWatchers: Map<string, any> | undefined;
+    var remoteFileWatchers: Map<string, FileWatcherInfo> | undefined;
+}
+
+function generateConnectionId(config: any): string {
+    return `${config.username}@${config.host}:${config.port}`;
 }
 
 export function activate(context: vscode.ExtensionContext) {
@@ -368,9 +378,33 @@ async function openRemoteFile(item: any) {
         const document = await vscode.workspace.openTextDocument(tempUri);
         await vscode.window.showTextDocument(document);
 
+        // Get current connection info for this file
+        const currentConnection = connectionManager.getConnectionInfo();
+        if (!currentConnection) {
+            throw new Error('No active connection');
+        }
+        const fileConnectionId = generateConnectionId(currentConnection);
+
         const disposable = vscode.workspace.onDidSaveTextDocument(async (savedDoc) => {
             if (savedDoc.uri.toString() === tempUri.toString()) {
                 try {
+                    // Validate that we're still connected to the same server
+                    const activeConnection = connectionManager.getConnectionInfo();
+                    if (!activeConnection) {
+                        vscode.window.showErrorMessage(`Cannot save ${path.basename(item.path)} - no active connection. Please reconnect to the server.`);
+                        return;
+                    }
+
+                    const activeConnectionId = generateConnectionId(activeConnection);
+                    if (activeConnectionId !== fileConnectionId) {
+                        const fileName = path.basename(item.path);
+                        vscode.window.showErrorMessage(
+                            `Cannot save ${fileName} - file belongs to ${fileConnectionId} but you're connected to ${activeConnectionId}. ` +
+                            `Disconnect and reconnect to the original server to save changes.`
+                        );
+                        return;
+                    }
+
                     const updatedContent = savedDoc.getText();
                     await connectionManager.writeFile(item.path, updatedContent);
                     const fileName = path.basename(item.path);
@@ -381,11 +415,15 @@ async function openRemoteFile(item: any) {
             }
         });
 
-        // Store disposable for cleanup command
+        // Store disposable with connection metadata for cleanup command
         if (!global.remoteFileWatchers) {
             global.remoteFileWatchers = new Map();
         }
-        global.remoteFileWatchers.set(tempUri.toString(), disposable);
+        global.remoteFileWatchers.set(tempUri.toString(), {
+            disposable: disposable,
+            connectionId: fileConnectionId,
+            remotePath: item.path
+        });
         
     } catch (error) {
         vscode.window.showErrorMessage(`Failed to open file: ${error}`);
@@ -407,8 +445,8 @@ async function cleanupTempFiles() {
         
         // Clean up file watchers first
         if (global.remoteFileWatchers) {
-            for (const disposable of global.remoteFileWatchers.values()) {
-                disposable.dispose();
+            for (const watcherInfo of global.remoteFileWatchers.values()) {
+                watcherInfo.disposable.dispose();
             }
             global.remoteFileWatchers.clear();
         }
@@ -467,8 +505,8 @@ export function deactivate() {
     
     // Clean up file watchers on deactivation
     if (global.remoteFileWatchers) {
-        for (const disposable of global.remoteFileWatchers.values()) {
-            disposable.dispose();
+        for (const watcherInfo of global.remoteFileWatchers.values()) {
+            watcherInfo.disposable.dispose();
         }
         global.remoteFileWatchers.clear();
     }
