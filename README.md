@@ -234,8 +234,10 @@ If you see "keyring couldn't be identified":
    **Option B: Package and Install**
    - Install the packaging tool: `npm install -g vsce`
    - Package the extension: `vsce package`
-   - In VSCode/Cursor: `Extensions` → `...` → `Install from VSIX...`
-   - Select the generated `.vsix` file
+   - Press `Cmd+Shift+P` (Mac) or `Ctrl+Shift+P` (Windows/Linux)
+   - Type "install from vsix"
+   - Select "Extensions: Install from VSIX..."
+   - Browse to your `.vsix` file
 
 ### Development Workflow
 
