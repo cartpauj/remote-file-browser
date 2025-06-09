@@ -125,7 +125,7 @@ src/
 - Added connection-specific temp directories preserving remote paths
 - Created override prompts for existing temp files (fresh vs cached)
 - Implemented manual cleanup with shell interface for temp file management
-- Added cross-platform temp file access (terminal fallback for Crostini/ChromeOS)
+- Added cross-platform temp file access via terminal interface
 
 ### Phase 6: Enhanced Welcome Experience
 - Created dynamic welcome screen with recent connections tree view
@@ -167,7 +167,7 @@ src/
 - No support for SFTP/FTP advanced features (tunneling, etc.)
 - Limited to basic authentication methods (no certificates, etc.)
 - Recent connections based on order in configuration (not actual usage tracking)
-- Temp file management relies on terminal interface for cross-platform compatibility
+- Temp file management uses terminal interface for all platforms
 
 ### Multi-Window Compatibility Issues
 - **Shared Temporary Directory Conflicts**: Multiple VSCode/Cursor windows connecting to the same server use identical temp file paths (`/tmp/remote-file-browser/user-at-server-22/`), causing file overwrite conflicts when opening the same remote files
@@ -185,7 +185,7 @@ src/
 - Dark theme customization for connection manager
 - Keyboard shortcuts for common operations
 - Usage-based recent connections tracking
-- Native file manager integration for temp file access
+- Enhanced terminal interface features for temp file access
 - Batch file operations and multi-selection support
 - Connection grouping and organization features
 

@@ -219,12 +219,6 @@ If you see "keyring couldn't be identified":
 
 Future versions will include better multi-window isolation to prevent these issues.
 
-## Platform Support
-
-- **Windows**: Full support with Windows file managers
-- **macOS**: Full support with Finder integration
-- **Linux Desktop**: Full support with common file managers (Nautilus, Dolphin, etc.)
-- **ChromeOS/Crostini**: Supported via terminal interface for temp file access
 
 ## Building and Installation
 
