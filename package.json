@@ -1,0 +1,197 @@
+{
+	"name": "remote-file-browser",
+	"displayName": "Remote File Browser",
+	"description": "Browse remote files via SFTP/FTP without downloading them locally",
+	"version": "0.0.1",
+	"publisher": "cartpauj",
+	"engines": {
+		"vscode": "^1.74.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"activationEvents": [
+		"onCommand:remoteFileBrowser.connect"
+	],
+	"main": "./out/extension.js",
+	"contributes": {
+		"commands": [
+			{
+				"command": "remoteFileBrowser.connect",
+				"title": "Connect to Remote Server",
+				"category": "Remote File Browser"
+			},
+			{
+				"command": "remoteFileBrowser.connectFromConfig",
+				"title": "Connect from Saved Configuration",
+				"category": "Remote File Browser"
+			},
+			{
+				"command": "remoteFileBrowser.manageConnections",
+				"title": "Manage Connections",
+				"category": "Remote File Browser"
+			},
+			{
+				"command": "remoteFileBrowser.disconnect",
+				"title": "Disconnect from Remote Server",
+				"category": "Remote File Browser",
+				"icon": "$(close)"
+			},
+			{
+				"command": "remoteFileBrowser.refresh",
+				"title": "Refresh",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "remoteFileBrowser.cleanupTempFiles",
+				"title": "Clean Up Temporary Files",
+				"category": "Remote File Browser",
+				"icon": "$(trash)"
+			},
+			{
+				"command": "remoteFileBrowser.connectFromWelcome",
+				"title": "Connect from Welcome",
+				"category": "Remote File Browser"
+			}
+		],
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "remoteFileBrowser",
+					"title": "Remote Files",
+					"icon": "$(globe)"
+				}
+			]
+		},
+		"views": {
+			"remoteFileBrowser": [
+				{
+					"id": "remoteFilesWelcome",
+					"name": "Connection",
+					"when": "!remoteFileBrowser.connected"
+				},
+				{
+					"id": "remoteFilesList",
+					"name": "Remote Files",
+					"when": "remoteFileBrowser.connected"
+				}
+			]
+		},
+		"menus": {
+			"view/title": [
+				{
+					"command": "remoteFileBrowser.refresh",
+					"when": "view == remoteFilesList",
+					"group": "navigation"
+				},
+				{
+					"command": "remoteFileBrowser.disconnect",
+					"when": "view == remoteFilesList",
+					"group": "navigation"
+				},
+				{
+					"command": "remoteFileBrowser.cleanupTempFiles",
+					"when": "view == remoteFilesList",
+					"group": "navigation"
+				}
+			],
+			"commandPalette": [
+				{
+					"command": "remoteFileBrowser.connect"
+				},
+				{
+					"command": "remoteFileBrowser.connectFromConfig"
+				},
+				{
+					"command": "remoteFileBrowser.manageConnections"
+				},
+				{
+					"command": "remoteFileBrowser.disconnect",
+					"when": "remoteFileBrowser.connected"
+				},
+				{
+					"command": "remoteFileBrowser.cleanupTempFiles"
+				},
+				{
+					"command": "remoteFileBrowser.connectFromWelcome"
+				}
+			]
+		},
+		"configuration": {
+			"title": "Remote File Browser",
+			"properties": {
+				"remoteFileBrowser.connections": {
+					"type": "array",
+					"default": [],
+					"description": "Saved remote server connections",
+					"items": {
+						"type": "object",
+						"properties": {
+							"name": {
+								"type": "string",
+								"description": "Connection name"
+							},
+							"protocol": {
+								"type": "string",
+								"enum": [
+									"sftp",
+									"ftp"
+								],
+								"description": "Protocol to use"
+							},
+							"host": {
+								"type": "string",
+								"description": "Server hostname or IP"
+							},
+							"port": {
+								"type": "number",
+								"description": "Server port"
+							},
+							"username": {
+								"type": "string",
+								"description": "Username"
+							},
+							"remotePath": {
+								"type": "string",
+								"default": "/",
+								"description": "Remote path to browse"
+							},
+							"authType": {
+								"type": "string",
+								"enum": ["password", "key"],
+								"default": "password",
+								"description": "Authentication method"
+							},
+							"keyPath": {
+								"type": "string",
+								"description": "Path to SSH private key file"
+							},
+							"passphrase": {
+								"type": "string",
+								"description": "Passphrase for encrypted SSH key (optional)"
+							}
+						}
+					}
+				}
+			}
+		}
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run compile",
+		"compile": "tsc -p ./",
+		"watch": "tsc -watch -p ./"
+	},
+	"devDependencies": {
+		"@types/node": "16.x",
+		"@types/ssh2-sftp-client": "^9.0.4",
+		"@types/vscode": "^1.74.0",
+		"typescript": "^4.9.4"
+	},
+	"dependencies": {
+		"basic-ftp": "^5.0.3",
+		"ssh2-sftp-client": "^9.1.0"
+	},
+	"__metadata": {
+		"size": 89222892
+	}
+}
