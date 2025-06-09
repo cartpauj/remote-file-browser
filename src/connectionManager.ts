@@ -120,7 +120,7 @@ export class ConnectionManager {
             if (this.config.authType === 'key' && this.config.keyPath) {
                 // SSH key authentication
                 try {
-                    connectOptions.privateKey = fs.readFileSync(this.config.keyPath);
+                    connectOptions.privateKey = fs.readFileSync(this.config.keyPath, 'utf8');
                     if (this.config.passphrase) {
                         connectOptions.passphrase = this.config.passphrase;
                     }

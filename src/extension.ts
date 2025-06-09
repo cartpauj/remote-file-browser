@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as os from 'os';
+import * as path from 'path';
 import { RemoteFileProvider } from './remoteFileProvider';
 import { ConnectionManager } from './connectionManager';
 import { ConnectionManagerView } from './connectionManagerView';
@@ -285,8 +287,10 @@ async function disconnectFromRemoteServer() {
 }
 
 function sanitizeFileName(name: string): string {
+    const windowsReserved = ['CON', 'PRN', 'AUX', 'NUL', 'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9', 'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9'];
+    
     // Replace unsafe characters with safe alternatives
-    return name
+    let sanitized = name
         .replace(/[@]/g, '-at-')
         .replace(/[:/\\]/g, '-')
         .replace(/[<>:"|?*]/g, '_')
@@ -294,16 +298,25 @@ function sanitizeFileName(name: string): string {
         .replace(/\.+/g, '.')
         .replace(/^[.-]/, '_')
         .substring(0, 50); // Limit length
+    
+    // Check for Windows reserved names
+    if (process.platform === 'win32' && windowsReserved.includes(sanitized.toUpperCase())) {
+        sanitized = `_${sanitized}`;
+    }
+    
+    return sanitized;
 }
 
 function getConnectionTempDir(): string {
     const connectionInfo = connectionManager.getConnectionInfo();
+    const tempDir = os.tmpdir();
+    
     if (!connectionInfo) {
-        return '/tmp/remote-file-browser/unknown';
+        return path.join(tempDir, 'remote-file-browser', 'unknown');
     }
     
     const sanitizedName = sanitizeFileName(`${connectionInfo.username}-${connectionInfo.host}-${connectionInfo.port}`);
-    return `/tmp/remote-file-browser/${sanitizedName}`;
+    return path.join(tempDir, 'remote-file-browser', sanitizedName);
 }
 
 async function openRemoteFile(item: any) {
@@ -315,12 +328,12 @@ async function openRemoteFile(item: any) {
         // Create connection-specific directory structure
         const connectionDir = getConnectionTempDir();
         const remotePath = item.path.startsWith('/') ? item.path.substring(1) : item.path;
-        const localPath = remotePath.replace(/\/+/g, '/'); // Normalize slashes
-        const tempFilePath = `${connectionDir}/${localPath}`;
+        const localPath = remotePath.replace(/\/+/g, path.sep); // Use OS-specific separator
+        const tempFilePath = path.join(connectionDir, localPath);
         const tempUri = vscode.Uri.file(tempFilePath);
         
         // Ensure directory exists
-        const tempDir = tempFilePath.substring(0, tempFilePath.lastIndexOf('/'));
+        const tempDir = path.dirname(tempFilePath);
         await vscode.workspace.fs.createDirectory(vscode.Uri.file(tempDir));
         
         // Check if temp file already exists
@@ -329,7 +342,7 @@ async function openRemoteFile(item: any) {
             await vscode.workspace.fs.stat(tempUri);
             
             // File exists, ask user what to do
-            const fileName = item.path.split('/').pop();
+            const fileName = path.basename(item.path);
             const choice = await vscode.window.showQuickPick([
                 { label: 'Override with fresh copy from server', value: 'override' },
                 { label: 'Open existing local copy', value: 'existing' },
@@ -360,7 +373,7 @@ async function openRemoteFile(item: any) {
                 try {
                     const updatedContent = savedDoc.getText();
                     await connectionManager.writeFile(item.path, updatedContent);
-                    const fileName = item.path.split('/').pop();
+                    const fileName = path.basename(item.path);
                     vscode.window.showInformationMessage(`Uploaded ${fileName} to remote server`);
                 } catch (error) {
                     vscode.window.showErrorMessage(`Failed to upload file: ${error}`);
@@ -401,7 +414,8 @@ async function cleanupTempFiles() {
         }
         
         // Delete the entire remote-file-browser directory using VSCode filesystem API
-        const remoteBrowserDir = vscode.Uri.file('/tmp/remote-file-browser');
+        const tempDir = os.tmpdir();
+        const remoteBrowserDir = vscode.Uri.file(path.join(tempDir, 'remote-file-browser'));
         let deletedCount = 0;
         
         try {

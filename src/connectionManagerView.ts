@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as os from 'os';
+import * as path from 'path';
 import { CredentialManager } from './credentialManager';
 
 export class ConnectionManagerView {
@@ -80,7 +82,10 @@ export class ConnectionManagerView {
                         'SSH Keys': ['*'],
                         'All Files': ['*']
                     },
-                    defaultUri: vscode.Uri.file(process.env.HOME + '/.ssh' || '/home')
+                    defaultUri: vscode.Uri.file((() => {
+                        const homeDir = process.env.HOME || process.env.USERPROFILE || (process.platform === 'win32' ? 'C:\\Users\\Default' : '/home');
+                        return path.join(homeDir, '.ssh');
+                    })())
                 });
 
                 if (fileUri && fileUri[0]) {
@@ -100,7 +105,8 @@ export class ConnectionManagerView {
                 break;
 
             case 'openTempDirectory':
-                const tempDirPath = '/tmp/remote-file-browser';
+                const tempDir = os.tmpdir();
+                const tempDirPath = path.join(tempDir, 'remote-file-browser');
                 
                 // Check if directory exists first
                 try {
@@ -125,9 +131,13 @@ export class ConnectionManagerView {
         
         terminal.show();
         
-        // Send commands to list the contents
+        // Send commands to list the contents - use cross-platform command
         setTimeout(() => {
-            terminal.sendText('ls -la', true);
+            if (process.platform === 'win32') {
+                terminal.sendText('dir', true);
+            } else {
+                terminal.sendText('ls -la', true);
+            }
         }, 500);
         
         vscode.window.showInformationMessage('Opened terminal in temp files directory');
