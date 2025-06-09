@@ -5,6 +5,24 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2025-06-09
+
+### Added
+- **PuTTY .ppk File Support**: Added automatic conversion of PuTTY private key files to OpenSSH format
+- Enhanced SSH key authentication to support both OpenSSH (.key, .pem, .openssh) and PuTTY (.ppk) formats
+- Updated file browser filters to include .ppk files for easier key selection
+- Added `sshpk` library for robust SSH key parsing and format detection
+
+### Changed
+- Improved SSH Key Authentication section in connection manager with format-specific guidance
+- Enhanced file browser with dedicated PuTTY key filter
+- Updated documentation to reflect new .ppk file support
+
+### Security
+- PuTTY .ppk files converted in memory without creating temporary files
+- Maintained existing security principles for credential and key handling
+- No changes to existing OpenSSH key processing (backward compatible)
+
 ## [2.1.2] - 2025-06-09
 
 ### Security
