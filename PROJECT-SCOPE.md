@@ -141,6 +141,14 @@ src/
 - Removed auto-open connection manager on disconnect for cleaner UX
 - Consolidated duplicate connection authentication code for maintainability
 
+### Phase 7: Security & Connection Safety
+- Implemented connection-aware file watchers to prevent cross-server file uploads
+- Added validation to ensure files are only saved to their originating connections
+- Enhanced file watcher storage to track connection metadata (username@host:port)
+- Introduced clear error messages when attempting to save files to wrong servers
+- Maintained cross-platform compatibility while adding security validation
+- Prevented data loss scenarios in multi-server development workflows
+
 ## Configuration Schema
 ```json
 {
@@ -181,6 +189,21 @@ src/
 - **Race Conditions**: Multiple windows editing the same remote file can overwrite each other's changes, with whichever saves last winning
 - **Cleanup Side Effects**: Running "Clean Up Temp Files" in one window affects file synchronization in all other windows
 - **No Connection Isolation**: Extension lacks prevention mechanisms for multiple windows connecting to the same server simultaneously
+
+## Security Improvements
+
+### Connection-Aware File Watchers (Implemented)
+- **Cross-Connection Upload Prevention**: File watchers now track which connection each file belongs to, preventing dangerous scenarios where files could be uploaded to the wrong server
+- **Connection Validation on Save**: Before uploading any file, the system validates that the user is still connected to the same server that originally provided the file
+- **Clear Error Messages**: When attempting to save a file from a different connection, users receive clear feedback like "Cannot save index.php - file belongs to user@serverA:22 but you're connected to admin@serverB:21"
+- **Cross-Platform Compatibility**: Uses existing sanitization and path handling systems to work consistently across Windows, macOS, and Linux
+- **No Breaking Changes**: Implementation preserves all existing functionality while adding safety validation
+
+### Impact
+This fix prevents data loss scenarios where:
+- User opens file from Server A, disconnects, connects to Server B, and saves changes (would previously upload to Server B)
+- Multi-server workflows could accidentally overwrite files on production servers with development content
+- Files could be uploaded to wrong environments without user awareness
 
 ## Future Enhancement Opportunities
 - Connection testing functionality

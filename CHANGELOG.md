@@ -5,6 +5,19 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.2] - 2025-06-09
+
+### Security
+- **Connection-Aware File Watchers**: Implemented validation to prevent files from being uploaded to wrong servers
+- Added connection tracking for each opened file to ensure files are only saved to their originating connections
+- Enhanced file watcher storage to track connection metadata (username@host:port)
+- Introduced clear error messages when attempting to save files to different servers
+
+### Fixed
+- Prevented data loss scenarios where files could be accidentally uploaded to wrong servers in multi-server workflows
+- Fixed potential security issue where development files could overwrite production files when switching connections
+- Maintained cross-platform compatibility while adding security validation
+
 ## [2.1.1] - 2025-06-09
 
 ### Fixed
