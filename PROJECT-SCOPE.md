@@ -16,6 +16,8 @@ This extension is designed to work seamlessly across all major operating systems
 - **Authentication Methods**: 
   - Password authentication
   - SSH key authentication (with optional passphrase)
+    - OpenSSH private key format (traditional and modern)
+    - PuTTY .ppk file format (with automatic conversion)
 - **Secure Credential Storage**: Uses VSCode's SecretStorage API (system keychain)
 - **Connection Persistence**: Saved connections with optional secure password storage
 
@@ -31,6 +33,8 @@ This extension is designed to work seamlessly across all major operating systems
 - **Visual Connection Manager**: Web-based interface for managing server connections
 - **Form-based Configuration**: Add/edit connections without JSON editing
 - **SSH Key File Browser**: Browse and select SSH key files using native file dialog
+  - Supports OpenSSH private keys (.key, .pem, .openssh)
+  - Supports PuTTY private keys (.ppk) with automatic format conversion
 - **Connection Actions**: Connect, Edit, Delete buttons for each saved connection
 - **Temp File Management**: View and clean up temporary files via shell interface
 
@@ -63,9 +67,22 @@ src/
 ```
 
 ### Key Dependencies
-- `ssh2-sftp-client`: SFTP client library
-- `basic-ftp`: FTP client library
-- `@types/ssh2-sftp-client`: TypeScript definitions for SFTP client
+
+#### Runtime Dependencies
+- `ssh2-sftp-client` (^9.1.0): SFTP client library for SSH file transfers
+- `basic-ftp` (^5.0.3): FTP client library for FTP connections
+- `sshpk` (^1.18.0): SSH key parsing and format conversion (supports PuTTY .ppk files)
+
+#### Development Dependencies
+- `@types/ssh2-sftp-client` (^9.0.4): TypeScript definitions for SFTP client
+- `@types/sshpk` (^1.17.4): TypeScript definitions for sshpk library
+- `@types/vscode` (^1.74.0): VSCode extension API TypeScript definitions
+- `@types/node` (16.x): Node.js TypeScript definitions
+- `typescript` (^4.9.4): TypeScript compiler
+- `webpack` (^5.99.9): Module bundler for optimized distribution
+- `webpack-cli` (^6.0.1): Webpack command line interface
+- `ts-loader` (^9.5.2): TypeScript loader for webpack
+- `node-loader` (^2.1.0): Native module loader for webpack (handles SSH2 binaries)
 
 ### Extension Configuration
 - **View Container**: Custom activity bar container with globe icon
@@ -149,6 +166,14 @@ src/
 - Maintained cross-platform compatibility while adding security validation
 - Prevented data loss scenarios in multi-server development workflows
 
+### Phase 8: Enhanced SSH Key Support
+- Added PuTTY .ppk file format support with automatic conversion to OpenSSH
+- Integrated `sshpk` library for robust SSH key parsing and format detection
+- Enhanced file browser filters to include .ppk files alongside OpenSSH formats
+- Implemented transparent .ppk to OpenSSH conversion without breaking existing functionality
+- Added proper TypeScript definitions for improved development experience
+- Maintained backward compatibility with existing OpenSSH private key workflows
+
 ## Configuration Schema
 ```json
 {
@@ -171,6 +196,8 @@ src/
 - Credentials stored using VSCode SecretStorage API
 - SSH keys read from disk only during connection
 - No credential caching in memory beyond connection duration
+- PuTTY .ppk files automatically converted to OpenSSH format in memory (not persisted)
+- SSH key format conversion happens securely without writing temporary files
 - Temporary files organized in connection-specific directories with sanitized names
 - Manual cleanup of temporary files and watchers prevents sensitive data accumulation
 - Cross-platform filesystem safety with character sanitization for folder names
@@ -179,7 +206,7 @@ src/
 - Requires system keyring software for secure credential storage
 - Large files may impact performance during transfer
 - No support for SFTP/FTP advanced features (tunneling, etc.)
-- Limited to basic authentication methods (no certificates, etc.)
+- Limited to password and private key authentication (no certificates, multi-factor, etc.)
 - Recent connections based on order in configuration (not actual usage tracking)
 - Temp file management uses terminal interface for all platforms
 

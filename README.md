@@ -17,7 +17,7 @@ A VSCode/Cursor extension that lets you browse and edit remote files via SFTP/FT
      - **Host**: Your server's IP address or domain name
      - **Port**: Usually 22 for SFTP, 21 for FTP
      - **Username**: Your server username
-     - **Authentication**: Choose Password or SSH Key
+     - **Authentication**: Choose Password or SSH Key (supports OpenSSH and PuTTY .ppk formats)
      - **Remote Path**: Starting directory (usually `/`)
 
 3. **Save and Connect**
@@ -53,9 +53,12 @@ A VSCode/Cursor extension that lets you browse and edit remote files via SFTP/FT
 ### Adding SSH Key Authentication
 1. In the connection form, select **"SSH Key"** for authentication
 2. Click **"Browse..."** to select your private key file
-3. Usually located in `~/.ssh/id_rsa` or similar
-4. Enter the key passphrase if your key is encrypted
-5. Save the connection and connect
+3. Supports both **OpenSSH** (`.key`, `.pem`) and **PuTTY** (`.ppk`) key formats
+4. Usually located in `~/.ssh/id_rsa` or `C:\Users\Username\.ssh\`
+5. Enter the key passphrase if your key is encrypted
+6. Save the connection and connect
+
+**Note**: PuTTY `.ppk` files are automatically converted to OpenSSH format during connection - no manual conversion needed!
 
 ### Managing Connections
 - **Edit**: Click "Edit" next to any connection to modify settings
@@ -187,7 +190,7 @@ If you see "keyring couldn't be identified":
 ## Security Notes
 
 - **Credentials**: Stored securely in your OS keychain (not in settings files)
-- **SSH Keys**: Read from disk only during connection, not cached in memory
+- **SSH Keys**: Read from disk only during connection, not cached in memory (PuTTY .ppk files converted in memory)
 - **Temp Files**: Use sanitized names to prevent path traversal attacks
 - **Network**: All connections use standard SFTP/FTP protocols with your authentication
 

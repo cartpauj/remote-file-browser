@@ -221,6 +221,7 @@
 	"devDependencies": {
 		"@types/node": "16.x",
 		"@types/ssh2-sftp-client": "^9.0.4",
+		"@types/sshpk": "^1.17.4",
 		"@types/vscode": "^1.74.0",
 		"node-loader": "^2.1.0",
 		"ts-loader": "^9.5.2",
@@ -230,7 +231,8 @@
 	},
 	"dependencies": {
 		"basic-ftp": "^5.0.3",
-		"ssh2-sftp-client": "^9.1.0"
+		"ssh2-sftp-client": "^9.1.0",
+		"sshpk": "^1.18.0"
 	},
 	"__metadata": {
 		"size": 89222892

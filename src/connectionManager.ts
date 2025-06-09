@@ -1,6 +1,7 @@
 import * as SftpClient from 'ssh2-sftp-client';
 import { Client as FtpClient } from 'basic-ftp';
 import * as fs from 'fs';
+import * as sshpk from 'sshpk';
 
 export interface ConnectionConfig {
     protocol: 'sftp' | 'ftp';
@@ -120,13 +121,28 @@ export class ConnectionManager {
             if (this.config.authType === 'key' && this.config.keyPath) {
                 // SSH key authentication
                 try {
-                    connectOptions.privateKey = fs.readFileSync(this.config.keyPath, 'utf8');
-                    if (this.config.passphrase) {
-                        connectOptions.passphrase = this.config.passphrase;
+                    const keyData = fs.readFileSync(this.config.keyPath, 'utf8');
+                    
+                    // Check if it's a PuTTY .ppk file and convert to OpenSSH format
+                    if (keyData.startsWith('PuTTY-User-Key-File-')) {
+                        console.log('Detected PuTTY .ppk file, converting to OpenSSH format');
+                        try {
+                            const key = sshpk.parseKey(keyData, 'putty', { passphrase: this.config.passphrase });
+                            connectOptions.privateKey = key.toString('openssh');
+                            console.log('Successfully converted .ppk file to OpenSSH format');
+                        } catch (ppkError) {
+                            throw new Error(`Failed to convert PuTTY .ppk file: ${ppkError}`);
+                        }
+                    } else {
+                        // Handle as standard OpenSSH key
+                        connectOptions.privateKey = keyData;
+                        if (this.config.passphrase) {
+                            connectOptions.passphrase = this.config.passphrase;
+                        }
                     }
                     console.log('Using SSH key authentication');
                 } catch (keyError) {
-                    throw new Error(`Failed to read SSH key from ${this.config.keyPath}: ${keyError}`);
+                    throw new Error(`Failed to process SSH key from ${this.config.keyPath}: ${keyError}`);
                 }
             } else {
                 // Password authentication

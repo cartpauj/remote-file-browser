@@ -79,7 +79,8 @@ export class ConnectionManagerView {
                     canSelectFolders: false,
                     canSelectMany: false,
                     filters: {
-                        'SSH Keys': ['*'],
+                        'SSH Keys': ['key', 'pem', 'ppk', 'openssh'],
+                        'PuTTY Keys': ['ppk'],
                         'All Files': ['*']
                     },
                     defaultUri: vscode.Uri.file((() => {
