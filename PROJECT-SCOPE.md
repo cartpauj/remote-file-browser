@@ -435,112 +435,120 @@ The extension uses TypeScript source files that must be compiled to JavaScript b
 
 ### Complete Release Workflow
 
-**⚠️ IMPORTANT: Ensure all changes are committed to git before starting the release process!**
+**⚠️ IMPORTANT: Follow these steps in exact order for successful releases!**
 
 **🚨 CRITICAL REMINDER: VSCode extensions require TWO publishing steps:**
-1. **Git Release**: `npm version patch` + `git push --tags` (version control)
+1. **Git Release**: `npm version patch/minor/major` + `git push --tags` (version control)
 2. **Marketplace Release**: `vsce publish` (make available to users)
 
 **Both steps are required for a complete release!**
 
-#### Pre-Release Checklist
-```bash
-# 1. Check git status - must be clean before release
-git status
+#### Step-by-Step Release Process
 
-# 2. If changes exist, commit them first:
-git add .
-git commit -m "Description of changes"
-
-# 3. Update CHANGELOG.md if needed (add new version entry)
-# Edit CHANGELOG.md manually to document changes
-```
-
-#### Release Process
-
-1. **Test Changes Locally**
+1. **Check Git Status**
    ```bash
-   # Development build (creates out/extension.js from src/extension.ts)
-   npm run compile
+   # Ensure working directory is clean or commit pending changes
+   git status
    
-   # Production build with webpack bundling
+   # If changes exist, commit them first (including any new features/fixes)
+   git add .
+   git commit -m "Description of changes"
+   ```
+
+2. **Update Changelog** (REQUIRED - do this first!)
+   ```bash
+   # Edit CHANGELOG.md to add new version entry at the top
+   # Include summary of changes for the upcoming version
+   # Example: ## [2.2.1] - 2025-06-09
+   #          ### Fixed
+   #          - Fixed broken author link in Resources menu
+   
+   # Commit changelog updates along with any other changes
+   git add CHANGELOG.md package.json  # (if package.json was also modified)
+   git commit -m "Update changelog for version X.X.X - Brief description"
+   ```
+
+3. **Test Build**
+   ```bash
+   # Verify both development and production builds work
+   npm run compile
    npm run package
    ```
 
-2. **Package Extension for Testing**
+4. **Version Bump and Git Release**
    ```bash
-   # Create .vsix package for local testing (auto-builds extension.js)
-   vsce package
+   # Choose version type based on changes:
+   npm version patch    # For bug fixes: 2.2.0 → 2.2.1
+   npm version minor    # For new features: 2.2.0 → 2.3.0
+   npm version major    # For breaking changes: 2.2.0 → 3.0.0
    
-   # Install locally to test:
-   # In VSCode: Extensions → ... → Install from VSIX
-   # Select the generated .vsix file
+   # This automatically:
+   # - Updates package.json version
+   # - Creates a git commit with version bump
+   # - Creates a git tag (e.g., v2.2.1)
    ```
 
-3. **Update Changelog (if needed)**
+5. **Push to GitHub**
    ```bash
-   # Edit CHANGELOG.md to add new version entry before publishing
-   # Include summary of changes for the new version
-   
-   # Commit changelog updates
-   git add CHANGELOG.md
-   git commit -m "Update changelog for version X.X.X"
-   ```
-
-4. **Publish to Marketplace**
-   ```bash
-   # CRITICAL: Ensure git working directory is clean first!
-   git status  # Should show "nothing to commit, working tree clean"
-   
-   # Option A: Use npm version for proper versioning (RECOMMENDED)
-   npm version patch    # For bug fixes: 2.1.0 → 2.1.1
-   npm version minor    # For new features: 2.1.0 → 2.2.0
-   npm version major    # For breaking changes: 2.1.0 → 3.0.0
-   
-   # ⚠️ CRITICAL: Don't forget to publish to marketplace after git push!
-   vsce publish
-   
-   # Option B: Direct vsce publish with version bump
-   vsce publish patch    # Auto-increments version and publishes
-   vsce publish minor    # Auto-increments version and publishes  
-   vsce publish major    # Auto-increments version and publishes
-   ```
-
-5. **Create Standalone Package (Optional)**
-   ```bash
-   # Generate .vsix file for manual distribution
-   vsce package
-   
-   # This creates a file like: remote-file-browser-2.1.1.vsix
-   # Users can install this manually via:
-   # Extensions → ... → Install from VSIX
-   ```
-
-6. **Post-Release Git Management**
-   ```bash
-   # Push version tags and commits to remote
+   # Push both commits and tags to remote repository
    git push origin main --tags
-   
-   # ⚠️ CRITICAL: Must publish to marketplace after git operations!
+   ```
+
+6. **Publish to Marketplace**
+   ```bash
+   # Publish to VSCode Marketplace (runs prepublish build automatically)
    vsce publish
    
-   # Verify the release
-   git log --oneline -5  # Check recent commits
-   git tag --sort=-version:refname | head -5  # Check recent tags
+   # This will:
+   # - Run npm run vscode:prepublish (which runs npm run package)
+   # - Build the extension with webpack
+   # - Upload to marketplace
+   # - Show success message with marketplace URL
+   ```
+
+7. **Verify Release**
+   ```bash
+   # Check recent commits and tags
+   git log --oneline -5
+   echo "---"
+   git tag --sort=-version:refname | head -5
+   
+   # Marketplace URL: https://marketplace.visualstudio.com/items?itemName=cartpauj.remote-file-browser
    ```
 
 #### ✅ Release Completion Checklist
-- [ ] Code changes committed to git
-- [ ] CHANGELOG.md updated with release notes
-- [ ] `npm version patch/minor/major` executed
-- [ ] `git push origin main --tags` completed
-- [ ] **`vsce publish` executed** (CRITICAL - don't forget!)
+- [ ] All code changes committed to git
+- [ ] CHANGELOG.md updated with new version entry
+- [ ] Changelog committed along with any other changes
+- [ ] `npm run compile` and `npm run package` completed successfully
+- [ ] `npm version patch/minor/major` executed (auto-updates package.json and creates tag)
+- [ ] `git push origin main --tags` completed (pushes commits and tags to GitHub)
+- [ ] **`vsce publish` executed** (CRITICAL - publishes to marketplace)
+- [ ] Verification: `git log` and `git tag` show new version
 - [ ] Marketplace URL shows new version (may take a few minutes)
 - [ ] Extension available for user updates
 
-### Files Updated Automatically
-- `package.json` - Version field updated by vsce
-- `package-lock.json` - Updated automatically when package.json changes
+#### Files Updated Automatically During Release
+- `package.json` - Version field updated by `npm version`
+- `package-lock.json` - Updated automatically when package.json changes  
+- Git history - New commit and tag created by `npm version`
+
+#### Alternative: One-Command Publishing
+```bash
+# Option: Use vsce publish with auto-increment (skips git tagging)
+vsce publish patch    # Auto-increments version and publishes
+vsce publish minor    # Auto-increments version and publishes  
+vsce publish major    # Auto-increments version and publishes
+
+# ⚠️ WARNING: This method doesn't create git tags for version tracking
+# The manual method above is RECOMMENDED for better version control
+```
+
+#### Common Release Issues
+- **"Git working directory not clean"**: Commit all changes before `npm version`
+- **"Tag already exists"**: Check if version was already bumped with `git tag`
+- **"Authentication failed"**: Ensure you're logged into vsce with correct publisher credentials
+- **"Package.json version mismatch"**: Don't manually edit version in package.json, use `npm version`
 
 ### Version Numbering Guidelines
 - **Pre-1.0**: Use `0.x.x` for initial development
