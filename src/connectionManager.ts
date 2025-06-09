@@ -127,17 +127,40 @@ export class ConnectionManager {
                     if (keyData.startsWith('PuTTY-User-Key-File-')) {
                         console.log('Detected PuTTY .ppk file, converting to OpenSSH format');
                         try {
-                            const key = sshpk.parseKey(keyData, 'putty', { passphrase: this.config.passphrase });
+                            // Parse PPK file with better error handling
+                            const parseOptions: any = { filename: this.config.keyPath };
+                            if (this.config.passphrase) {
+                                parseOptions.passphrase = this.config.passphrase;
+                            }
+                            
+                            const key = sshpk.parseKey(keyData, 'putty', parseOptions);
                             connectOptions.privateKey = key.toString('openssh');
                             console.log('Successfully converted .ppk file to OpenSSH format');
                         } catch (ppkError) {
-                            throw new Error(`Failed to convert PuTTY .ppk file: ${ppkError}`);
+                            console.error('PPK parsing error details:', ppkError);
+                            throw new Error(`Failed to convert PuTTY .ppk file: ${ppkError}. Ensure the file is a valid PuTTY private key and the passphrase is correct.`);
                         }
                     } else {
-                        // Handle as standard OpenSSH key
-                        connectOptions.privateKey = keyData;
-                        if (this.config.passphrase) {
-                            connectOptions.passphrase = this.config.passphrase;
+                        // Try to parse as standard OpenSSH/PEM key first
+                        try {
+                            console.log('Attempting to parse as OpenSSH/PEM key');
+                            const parseOptions: any = { filename: this.config.keyPath };
+                            if (this.config.passphrase) {
+                                parseOptions.passphrase = this.config.passphrase;
+                            }
+                            
+                            // Validate key format before using
+                            const key = sshpk.parseKey(keyData, 'auto', parseOptions);
+                            connectOptions.privateKey = key.toString('openssh');
+                            console.log('Successfully parsed key as OpenSSH format');
+                        } catch (parseError) {
+                            console.error('Key parsing error:', parseError);
+                            // Fallback to raw key data if sshpk fails
+                            console.log('Falling back to raw key data');
+                            connectOptions.privateKey = keyData;
+                            if (this.config.passphrase) {
+                                connectOptions.passphrase = this.config.passphrase;
+                            }
                         }
                     }
                     console.log('Using SSH key authentication');

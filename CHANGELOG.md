@@ -5,6 +5,15 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.2] - 2025-06-09
+
+### Fixed
+- **Enhanced PPK File Parsing**: Improved PuTTY .ppk file parsing with better error handling and validation
+- Added proper filename context to sshpk parsing for more accurate error diagnostics
+- Enhanced SSH key validation with fallback strategy for better compatibility
+- Improved error messages for encrypted PPK files requiring passphrases
+- Added comprehensive logging for SSH key format detection and parsing failures
+
 ## [2.2.1] - 2025-06-09
 
 ### Fixed
