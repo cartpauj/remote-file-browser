@@ -332,10 +332,13 @@ export class ConnectionManagerView {
         }
         
         .connection-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
             margin-bottom: 10px;
+        }
+        
+        .connection-actions {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid var(--vscode-panel-border);
         }
         
         .connection-name {
@@ -379,12 +382,6 @@ export class ConnectionManagerView {
             
             .connection-item {
                 padding: 12px;
-            }
-            
-            .connection-header {
-                flex-direction: column;
-                align-items: stretch;
-                gap: 10px;
             }
             
             .button-group {
@@ -629,14 +626,14 @@ export class ConnectionManagerView {
             container.innerHTML = connections.map((conn, index) => \`
                 <div class="connection-item">
                     <div class="connection-header">
-                        <div>
-                            <div class="connection-name">\${conn.name || 'Unnamed Connection'}</div>
-                            <div class="connection-details">
-                                \${(conn.protocol || 'sftp').toUpperCase()}://\${conn.username}@\${conn.host}:\${conn.port || 22}
-                                <br>Path: \${conn.remotePath || '/'} | Auth: \${conn.authType === 'key' ? 'SSH Key' : 'Password'}
-                                \${conn.authType === 'key' ? \`<br>Key: \${conn.keyPath || 'Not specified'}\` : ''}
-                            </div>
+                        <div class="connection-name">\${conn.name || 'Unnamed Connection'}</div>
+                        <div class="connection-details">
+                            \${(conn.protocol || 'sftp').toUpperCase()}://\${conn.username}@\${conn.host}:\${conn.port || 22}
+                            <br>Path: \${conn.remotePath || '/'} | Auth: \${conn.authType === 'key' ? 'SSH Key' : 'Password'}
+                            \${conn.authType === 'key' ? \`<br>Key: \${conn.keyPath || 'Not specified'}\` : ''}
                         </div>
+                    </div>
+                    <div class="connection-actions">
                         <div class="button-group">
                             <button onclick="connectToConnection(\${index})">Connect</button>
                             <button onclick="editConnection(\${index})">Edit</button>
