@@ -191,6 +191,34 @@ If you see "keyring couldn't be identified":
 - **Temp Files**: Use sanitized names to prevent path traversal attacks
 - **Network**: All connections use standard SFTP/FTP protocols with your authentication
 
+## ⚠️ Multi-Window Limitations
+
+**Important**: Be careful when using multiple VSCode/Cursor windows with this extension to avoid data loss.
+
+### Known Issues
+- **Same Server Conflicts**: Multiple windows connecting to the same server share temp file storage, which can cause file conflicts
+- **Data Loss Risk**: If two windows edit the same remote file, whichever saves last will overwrite the other's changes
+- **Sync Disruption**: Running "Clean Up Temp Files" in one window stops file synchronization in ALL windows
+
+### How to Avoid Problems
+✅ **Safe Usage Patterns**:
+- Use only **one window per remote server**
+- Connect different windows to **different servers**
+- Use **different user accounts** on the same server from different windows
+
+❌ **Avoid These Scenarios**:
+- Two windows connected to `user@production-server.com`
+- Opening the same file (`/app/config.php`) from multiple windows
+- Running temp file cleanup while other windows have active connections
+
+### If You Must Use Multiple Windows
+1. **Coordinate file access** - Don't edit the same files simultaneously
+2. **Avoid cleanup operations** - Don't run "Clean Up Temp Files" while other windows are active
+3. **Save frequently** - Minimize time between edits to reduce conflict windows
+4. **Check for conflicts** - If sync stops working, disconnect and reconnect
+
+Future versions will include better multi-window isolation to prevent these issues.
+
 ## Platform Support
 
 - **Windows**: Full support with Windows file managers

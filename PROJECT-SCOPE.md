@@ -169,6 +169,13 @@ src/
 - Recent connections based on order in configuration (not actual usage tracking)
 - Temp file management relies on terminal interface for cross-platform compatibility
 
+### Multi-Window Compatibility Issues
+- **Shared Temporary Directory Conflicts**: Multiple VSCode/Cursor windows connecting to the same server use identical temp file paths (`/tmp/remote-file-browser/user-at-server-22/`), causing file overwrite conflicts when opening the same remote files
+- **Global File Watcher State**: File watchers are stored in Node.js global scope, causing cross-window interference when one window cleans up temp files (disposes watchers for all windows)
+- **Race Conditions**: Multiple windows editing the same remote file can overwrite each other's changes, with whichever saves last winning
+- **Cleanup Side Effects**: Running "Clean Up Temp Files" in one window affects file synchronization in all other windows
+- **No Connection Isolation**: Extension lacks prevention mechanisms for multiple windows connecting to the same server simultaneously
+
 ## Future Enhancement Opportunities
 - Connection testing functionality
 - Transfer progress indicators for large files
@@ -181,6 +188,14 @@ src/
 - Native file manager integration for temp file access
 - Batch file operations and multi-selection support
 - Connection grouping and organization features
+
+### Multi-Window Safety Improvements
+- **Window-Specific Temp Directories**: Use window/instance identifiers in temp paths to prevent conflicts (`/tmp/remote-file-browser/window-${id}/user-at-server-22/`)
+- **Instance-Level File Watchers**: Replace global file watcher state with per-window instance storage
+- **Connection Locking**: Implement filesystem-based or process-level locking to prevent multiple windows from connecting to the same server
+- **File Access Coordination**: Add file locking mechanisms to prevent concurrent edits of the same remote file across windows
+- **Isolated Cleanup Operations**: Ensure temp file cleanup only affects the current window's resources
+- **Connection State Visibility**: Add indicators showing which window is connected to which server
 
 ## Installation & Development
 
@@ -298,3 +313,97 @@ The extension uses **webpack bundling** for optimal performance and minimal pack
    - Select the generated `.vsix` file
 
 This project provides a complete, secure, and user-friendly solution for remote file browsing without the overhead of traditional sync-based approaches. The extension offers seamless connectivity with intelligent temp file management, cross-platform compatibility, and an intuitive interface optimized for daily development workflows.
+
+## VSCode Marketplace Publishing Plan
+
+### Prerequisites (High Priority)
+1. ✅ **Install vsce CLI tool globally** - Already installed
+2. **Create Microsoft account and Azure DevOps Personal Access Token** - Need Personal Access Token with "Marketplace (Manage)" scope for "All accessible organizations"
+3. **Create publisher profile on VSCode Marketplace** - Visit marketplace.visualstudio.com/manage to create publisher profile
+
+### Extension Preparation (Medium Priority)
+4. **Create extension icon (PNG/JPG, not SVG)** - Need 128x128 PNG icon and add `icon` field to package.json
+5. **Review and update package.json** - Publisher "cartpauj" already set, verify versioning and metadata
+6. **Ensure README.md meets marketplace standards** - Review for marketplace presentation
+7. **Review .vscodeignore file** - Already exists, verify it excludes unnecessary files from package
+8. **Add keywords to package.json** - Add relevant keywords for better discoverability (max 30 keywords)
+
+### Testing & Publishing (Medium/Low Priority)
+9. **Test extension packaging** - Run `vsce package` to create .vsix file locally
+10. **Test extension locally** - Install and test .vsix file before publishing
+11. **Publish extension** - Run `vsce publish` to upload to marketplace
+
+### Future Enhancements (Low Priority)
+12. **Optional: Verify publisher domain** - Requires extension to be on marketplace for 6+ months first, then add domain verification for verified badge
+
+### Key Marketplace Requirements
+- **Icon**: Must be PNG/JPG format (not SVG)
+- **Keywords**: Maximum 30 keywords for discoverability
+- **Version Compatibility**: `^1.74.0` VS Code engine already properly configured
+- **Files**: README.md, LICENSE (✅), and CHANGELOG.md recommended
+- **Publisher**: "cartpauj" already configured in package.json
+- **Packaging**: Uses webpack bundling for optimized distribution
+
+## Version Management & Release Process
+
+### Version Bump Strategy (Auto-Increment)
+The extension uses semantic versioning (`major.minor.patch`) with auto-increment via vsce:
+
+```bash
+vsce publish patch    # Bug fixes: 1.0.0 → 1.0.1
+vsce publish minor    # New features: 1.0.0 → 1.1.0  
+vsce publish major    # Breaking changes: 1.0.0 → 2.0.0
+```
+
+### Complete Release Workflow
+
+1. **Test Changes Locally**
+   ```bash
+   # Build and test your changes
+   npm run compile
+   npm run package
+   ```
+
+2. **Package and Test Extension**
+   ```bash
+   # Create .vsix package for testing
+   vsce package
+   
+   # Install locally to test:
+   # In VSCode: Extensions → ... → Install from VSIX
+   # Select the generated .vsix file
+   ```
+
+3. **Publish New Version**
+   ```bash
+   # Choose appropriate version bump:
+   vsce publish patch    # For bug fixes
+   vsce publish minor    # For new features
+   vsce publish major    # For breaking changes
+   ```
+
+4. **Post-Release (Optional)**
+   ```bash
+   # Commit the updated package.json to git
+   git add package.json package-lock.json
+   git commit -m "Bump version to $(node -p "require('./package.json').version")"
+   
+   # Create git tag for the release
+   git tag "v$(node -p "require('./package.json').version")"
+   git push origin main --tags
+   ```
+
+### Files Updated Automatically
+- `package.json` - Version field updated by vsce
+- `package-lock.json` - Updated automatically when package.json changes
+
+### Version Numbering Guidelines
+- **Pre-1.0**: Use `0.x.x` for initial development
+- **First Stable Release**: `1.0.0` when feature-complete
+- **Bug Fixes**: Patch version (1.0.1)
+- **New Features**: Minor version (1.1.0)
+- **Breaking Changes**: Major version (2.0.0)
+
+### Current Status
+- **Current Version**: `0.0.1` (initial development)
+- **Recommended First Release**: `1.0.0` (extension is feature-complete)
