@@ -5,6 +5,24 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.3] - 2025-06-09
+
+### Changed
+- **Simplified PPK File Handling**: Replaced complex sshpk library with native ssh2 PPK support for better reliability
+- Removed unnecessary dependencies: `sshpk` and `@types/sshpk` packages eliminated
+- Streamlined SSH key processing by leveraging ssh2-sftp-client's built-in PPK capabilities
+
+### Fixed
+- **Improved PPK File Compatibility**: Fixed encrypted PPK file passphrase handling that was failing with sshpk library
+- Resolved PPK file decryption issues by using ssh2's native PPK parsing
+- Enhanced error handling for invalid passphrases with clearer user feedback
+
+### Performance
+- **Reduced Bundle Size**: Extension size decreased from 279KB to 237KB (42KB reduction)
+- **Simplified Codebase**: Connection manager code reduced from 19KB to 6.65KB
+- **Faster Loading**: Removed 30+ unnecessary packages from dependency tree
+- **Cleaner Output**: Eliminated debug console logging for production builds
+
 ## [2.2.2] - 2025-06-09
 
 ### Fixed
