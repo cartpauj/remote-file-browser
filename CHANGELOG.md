@@ -5,6 +5,13 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.1] - 2025-06-09
+
+### Fixed
+- **File Opening Error**: Fixed "TypeError: e.once is not a function" error that could occur when opening remote files
+- **File Watcher Stability**: Added defensive programming to prevent crashes when file watcher disposables are invalid
+- **Error Handling**: Improved error messages for connection-related file opening issues
+
 ## [2.3.0] - 2025-06-09
 
 ### Added

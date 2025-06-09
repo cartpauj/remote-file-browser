@@ -467,14 +467,29 @@ async function openRemoteFile(item: any) {
         if (!global.remoteFileWatchers) {
             global.remoteFileWatchers = new Map();
         }
-        global.remoteFileWatchers.set(tempUri.toString(), {
-            disposable: disposable,
-            connectionId: fileConnectionId,
-            remotePath: item.path
-        });
+        
+        // Only store valid disposables
+        if (disposable && typeof disposable.dispose === 'function') {
+            global.remoteFileWatchers.set(tempUri.toString(), {
+                disposable: disposable,
+                connectionId: fileConnectionId,
+                remotePath: item.path
+            });
+        } else {
+            console.warn('File watcher disposable is invalid, skipping storage');
+        }
         
     } catch (error) {
-        const errorMessage = getUserFriendlyErrorMessage(error, 'open file');
+        let errorMessage: string;
+        
+        // Handle specific TypeError for .once function issues
+        if (error instanceof TypeError && error.message.includes('once is not a function')) {
+            errorMessage = `Failed to open file: Connection issue detected. Please disconnect and reconnect to the server, then try again.`;
+            console.error('File opening failed with .once error:', error);
+        } else {
+            errorMessage = getUserFriendlyErrorMessage(error, 'open file');
+        }
+        
         vscode.window.showErrorMessage(errorMessage);
     }
 }
@@ -495,7 +510,13 @@ async function cleanupTempFiles() {
         // Clean up file watchers first
         if (global.remoteFileWatchers) {
             for (const watcherInfo of global.remoteFileWatchers.values()) {
-                watcherInfo.disposable.dispose();
+                try {
+                    if (watcherInfo && watcherInfo.disposable && typeof watcherInfo.disposable.dispose === 'function') {
+                        watcherInfo.disposable.dispose();
+                    }
+                } catch (error) {
+                    console.warn('Failed to dispose file watcher:', error);
+                }
             }
             global.remoteFileWatchers.clear();
         }
@@ -789,7 +810,13 @@ export function deactivate() {
     // Clean up file watchers on deactivation
     if (global.remoteFileWatchers) {
         for (const watcherInfo of global.remoteFileWatchers.values()) {
-            watcherInfo.disposable.dispose();
+            try {
+                if (watcherInfo && watcherInfo.disposable && typeof watcherInfo.disposable.dispose === 'function') {
+                    watcherInfo.disposable.dispose();
+                }
+            } catch (error) {
+                console.warn('Failed to dispose file watcher during deactivation:', error);
+            }
         }
         global.remoteFileWatchers.clear();
     }
