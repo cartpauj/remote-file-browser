@@ -198,6 +198,61 @@ If you see "keyring couldn't be identified":
 - **Linux Desktop**: Full support with common file managers (Nautilus, Dolphin, etc.)
 - **ChromeOS/Crostini**: Supported via terminal interface for temp file access
 
+## Building and Installation
+
+### Installing from Source
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/cartpauj/remote-file-browser.git
+   cd remote-file-browser
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+
+3. **Compile TypeScript**:
+   ```bash
+   npm run compile
+   ```
+
+4. **Install the extension**:
+   
+   **Option A: Copy to Extensions Directory**
+   - Copy the entire project folder to your extensions directory:
+     - **Windows**: `%USERPROFILE%\.vscode\extensions\` or `%USERPROFILE%\.cursor\extensions\`
+     - **macOS**: `~/.vscode/extensions/` or `~/.cursor/extensions/`
+     - **Linux**: `~/.vscode/extensions/` or `~/.cursor/extensions/`
+   - Restart VSCode/Cursor
+   
+   **Option B: Package and Install**
+   - Install the packaging tool: `npm install -g vsce`
+   - Package the extension: `vsce package`
+   - In VSCode/Cursor: `Extensions` → `...` → `Install from VSIX...`
+   - Select the generated `.vsix` file
+
+### Development Workflow
+
+1. **Watch for changes** (auto-compile):
+   ```bash
+   npm run watch
+   ```
+
+2. **Test in Extension Development Host**:
+   - Press `F5` in VSCode/Cursor
+   - Or use "Run Extension" in the Run and Debug panel
+
+3. **Manual compile**:
+   ```bash
+   npm run compile
+   ```
+
+4. **After making changes**:
+   - Use "Developer: Reload Window" to reload the extension
+   - Or restart VSCode/Cursor completely
+
 ---
 
 *For technical details and development information, see [PROJECT-SCOPE.md](PROJECT-SCOPE.md)*
