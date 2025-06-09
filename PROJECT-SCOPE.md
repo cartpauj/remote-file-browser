@@ -5,6 +5,12 @@ A VSCode/Cursor extension that provides secure remote file browsing via SFTP/FTP
 
 ## Core Features
 
+### Cross-Platform Compatibility
+This extension is designed to work seamlessly across all major operating systems:
+- **Windows**: Full support for Windows 10/11 with proper path handling and credential storage
+- **macOS**: Native integration with macOS keychain and file system conventions
+- **Linux**: Compatible with various Linux distributions and desktop environments
+
 ### 1. Remote Connection Management
 - **Protocols Supported**: SFTP and FTP
 - **Authentication Methods**: 
@@ -355,18 +361,42 @@ vsce publish minor    # New features: 1.0.0 → 1.1.0
 vsce publish major    # Breaking changes: 1.0.0 → 2.0.0
 ```
 
+### Extension Build Process
+
+The extension uses TypeScript source files that must be compiled to JavaScript before packaging:
+
+**Source Files (`src/`):**
+- `extension.ts` - Main extension entry point with all core functionality
+- `connectionManager.ts` - SFTP/FTP connection handling
+- `remoteFileProvider.ts` - Tree view provider for remote files  
+- `connectionManagerView.ts` - Web-based connection management GUI
+- `credentialManager.ts` - Secure credential storage
+- `welcomeViewProvider.ts` - Dynamic welcome screen with recent connections
+
+**Build Output (`out/`):**
+- `extension.js` - Compiled main extension file (created from `extension.ts`)
+- Additional `.js` files for each TypeScript module
+- Source maps for debugging (`.js.map` files)
+
+**When to Build:**
+- **Development**: `npm run compile` or `npm run watch` (auto-rebuild on changes)
+- **Pre-Release Testing**: `npm run package` (production build with webpack bundling)
+- **Publishing**: Automatically triggered by `vsce publish` or `vsce package`
+
 ### Complete Release Workflow
 
 1. **Test Changes Locally**
    ```bash
-   # Build and test your changes
+   # Development build (creates out/extension.js from src/extension.ts)
    npm run compile
+   
+   # Production build with webpack bundling
    npm run package
    ```
 
 2. **Package and Test Extension**
    ```bash
-   # Create .vsix package for testing
+   # Create .vsix package for testing (auto-builds extension.js)
    vsce package
    
    # Install locally to test:
@@ -376,7 +406,7 @@ vsce publish major    # Breaking changes: 1.0.0 → 2.0.0
 
 3. **Publish New Version**
    ```bash
-   # Choose appropriate version bump:
+   # Choose appropriate version bump (auto-builds extension.js):
    vsce publish patch    # For bug fixes
    vsce publish minor    # For new features
    vsce publish major    # For breaking changes
