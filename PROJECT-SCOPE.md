@@ -385,6 +385,23 @@ The extension uses TypeScript source files that must be compiled to JavaScript b
 
 ### Complete Release Workflow
 
+**⚠️ IMPORTANT: Ensure all changes are committed to git before starting the release process!**
+
+#### Pre-Release Checklist
+```bash
+# 1. Check git status - must be clean before release
+git status
+
+# 2. If changes exist, commit them first:
+git add .
+git commit -m "Description of changes"
+
+# 3. Update CHANGELOG.md if needed (add new version entry)
+# Edit CHANGELOG.md manually to document changes
+```
+
+#### Release Process
+
 1. **Test Changes Locally**
    ```bash
    # Development build (creates out/extension.js from src/extension.ts)
@@ -394,9 +411,9 @@ The extension uses TypeScript source files that must be compiled to JavaScript b
    npm run package
    ```
 
-2. **Package and Test Extension**
+2. **Package Extension for Testing**
    ```bash
-   # Create .vsix package for testing (auto-builds extension.js)
+   # Create .vsix package for local testing (auto-builds extension.js)
    vsce package
    
    # Install locally to test:
@@ -404,23 +421,53 @@ The extension uses TypeScript source files that must be compiled to JavaScript b
    # Select the generated .vsix file
    ```
 
-3. **Publish New Version**
+3. **Update Changelog (if needed)**
    ```bash
-   # Choose appropriate version bump (auto-builds extension.js):
-   vsce publish patch    # For bug fixes
-   vsce publish minor    # For new features
-   vsce publish major    # For breaking changes
+   # Edit CHANGELOG.md to add new version entry before publishing
+   # Include summary of changes for the new version
+   
+   # Commit changelog updates
+   git add CHANGELOG.md
+   git commit -m "Update changelog for version X.X.X"
    ```
 
-4. **Post-Release (Optional)**
+4. **Publish to Marketplace**
    ```bash
-   # Commit the updated package.json to git
-   git add package.json package-lock.json
-   git commit -m "Bump version to $(node -p "require('./package.json').version")"
+   # CRITICAL: Ensure git working directory is clean first!
+   git status  # Should show "nothing to commit, working tree clean"
    
-   # Create git tag for the release
-   git tag "v$(node -p "require('./package.json').version")"
+   # Option A: Use npm version for proper versioning (RECOMMENDED)
+   npm version patch    # For bug fixes: 2.1.0 → 2.1.1
+   npm version minor    # For new features: 2.1.0 → 2.2.0
+   npm version major    # For breaking changes: 2.1.0 → 3.0.0
+   
+   # Then publish to marketplace
+   vsce publish
+   
+   # Option B: Direct vsce publish with version bump
+   vsce publish patch    # Auto-increments version and publishes
+   vsce publish minor    # Auto-increments version and publishes  
+   vsce publish major    # Auto-increments version and publishes
+   ```
+
+5. **Create Standalone Package (Optional)**
+   ```bash
+   # Generate .vsix file for manual distribution
+   vsce package
+   
+   # This creates a file like: remote-file-browser-2.1.1.vsix
+   # Users can install this manually via:
+   # Extensions → ... → Install from VSIX
+   ```
+
+6. **Post-Release Git Management**
+   ```bash
+   # Push version tags and commits to remote
    git push origin main --tags
+   
+   # Verify the release
+   git log --oneline -5  # Check recent commits
+   git tag --sort=-version:refname | head -5  # Check recent tags
    ```
 
 ### Files Updated Automatically
