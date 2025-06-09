@@ -246,13 +246,20 @@ export class ConnectionManagerView {
             font-family: var(--vscode-font-family);
             color: var(--vscode-foreground);
             background-color: var(--vscode-editor-background);
-            padding: 20px;
+            padding: 10px;
             margin: 0;
         }
         
         .container {
             max-width: 800px;
             margin: 0 auto;
+            width: 100%;
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                padding: 5px;
+            }
         }
         
         h1 {
@@ -344,6 +351,7 @@ export class ConnectionManagerView {
         .button-group {
             display: flex;
             gap: 10px;
+            flex-wrap: wrap;
         }
         
         .input-group {
@@ -354,12 +362,78 @@ export class ConnectionManagerView {
         
         .input-group input {
             flex: 1;
+            min-width: 0;
         }
         
         .browse-btn {
             padding: 8px 12px;
             min-width: auto;
             white-space: nowrap;
+            flex-shrink: 0;
+        }
+        
+        @media (max-width: 768px) {
+            .form-section {
+                padding: 15px;
+            }
+            
+            .connection-item {
+                padding: 12px;
+            }
+            
+            .connection-header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+            
+            .button-group {
+                justify-content: flex-start;
+            }
+            
+            .input-group {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .browse-btn {
+                align-self: flex-start;
+                margin-top: 5px;
+            }
+            
+            h1 {
+                font-size: 1.5em;
+            }
+            
+            h2 {
+                font-size: 1.2em;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .form-section {
+                padding: 10px;
+            }
+            
+            .connection-item {
+                padding: 10px;
+            }
+            
+            .button-group {
+                flex-direction: column;
+                gap: 5px;
+            }
+            
+            button {
+                width: 100%;
+                margin-right: 0;
+            }
+            
+            .browse-btn {
+                width: auto;
+                align-self: flex-start;
+                max-width: 120px;
+            }
         }
     </style>
 </head>
@@ -433,9 +507,9 @@ export class ConnectionManagerView {
         </div>
         
         <div class="connection-list">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                 <h2 style="margin: 0;">Saved Connections</h2>
-                <div style="display: flex; gap: 10px;">
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                     <button type="button" id="openTempDirBtn">💻 View tmp files in shell</button>
                     <button type="button" id="cleanupBtn" class="danger">🗑️ Clean Up Temp Files</button>
                 </div>
