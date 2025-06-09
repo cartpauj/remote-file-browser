@@ -13,11 +13,21 @@
 		"vscode": "^1.74.0"
 	},
 	"categories": [
-		"Other"
+		"Remote Development"
 	],
-	"activationEvents": [
-		"onCommand:remoteFileBrowser.connect"
+	"license": "GPL-3.0",
+	"author": "cartpauj",
+	"homepage": "https://github.com/cartpauj/remote-file-browser",
+	"bugs": {
+		"url": "https://github.com/cartpauj/remote-file-browser/issues"
+	},
+	"keywords": [
+		"sftp", "ftp", "remote", "ssh", "files", "browser", "server",
+		"file-manager", "remote-development", "file-explorer", "secure",
+		"connection", "sync", "file-transfer", "remote-files", "ssh-client",
+		"file-system", "network", "remote-server", "file-browser"
 	],
+	"activationEvents": [],
 	"main": "./out/extension.js",
 	"contributes": {
 		"commands": [
