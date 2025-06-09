@@ -16,7 +16,10 @@
 		"Other"
 	],
 	"license": "GPL-3.0",
-	"author": "cartpauj",
+	"author": {
+		"name": "cartpauj",
+		"url": "https://github.com/cartpauj"
+	},
 	"homepage": "https://github.com/cartpauj/remote-file-browser",
 	"bugs": {
 		"url": "https://github.com/cartpauj/remote-file-browser/issues"
