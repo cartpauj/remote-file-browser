@@ -223,18 +223,25 @@ Essential files for the repository:
    npm install
    ```
 
-3. **Compile TypeScript**:
+3. **Build the extension**:
    ```bash
+   # Development build (webpack bundling)
    npm run compile
+   
+   # Production build (minified)
+   npm run package
    ```
 
 4. **Development workflow**:
    ```bash
-   # Watch for changes (auto-compile)
+   # Watch for changes (auto-compile with webpack)
    npm run watch
    
-   # Manual compile
+   # Manual development build
    npm run compile
+   
+   # Production build
+   npm run package
    
    # Test in Extension Development Host
    # Press F5 in VSCode/Cursor or use "Run Extension" in Run and Debug panel
@@ -248,20 +255,45 @@ Essential files for the repository:
    - Restart VSCode/Cursor
    - The extension will appear in your extensions list
 
+### Extension Bundling & Optimization
+
+The extension uses **webpack bundling** for optimal performance and minimal package size:
+
+- **Bundle Size**: Reduced from 6.2MB (573 files) to 211KB (16 files) - 97% size reduction
+- **Build Process**: TypeScript → Webpack → Minified Bundle
+- **Dependencies**: Native binary modules handled via node-loader
+- **Exclusions**: Source files, tests, and dev dependencies excluded via `.vscodeignore`
+
+#### Bundling Configuration
+- **webpack.config.js**: Bundles TypeScript into single optimized file
+- **node-loader**: Handles SSH2 native binary dependencies (.node files)
+- **Production mode**: Minification and tree-shaking enabled
+- **Source maps**: Hidden source maps for debugging without source exposure
+
 ### Building for Distribution
 
-1. **Install vsce** (VSCode Extension packaging tool):
+1. **Install packaging dependencies**:
    ```bash
    npm install -g vsce
+   npm install
    ```
 
-2. **Package the extension**:
+2. **Package the extension** (automatically runs bundling):
    ```bash
    vsce package
    ```
-   This creates a `.vsix` file for distribution
+   This runs `npm run vscode:prepublish` → `npm run package` → webpack bundling
 
-3. **Install from .vsix**:
+3. **Manual bundling** (development):
+   ```bash
+   # Development bundle
+   npm run compile
+   
+   # Production bundle (minified)
+   npm run package
+   ```
+
+4. **Install from .vsix**:
    - In VSCode/Cursor: `Extensions` → `...` → `Install from VSIX...`
    - Select the generated `.vsix` file
 

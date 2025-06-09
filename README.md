@@ -213,9 +213,13 @@ If you see "keyring couldn't be identified":
    npm install
    ```
 
-3. **Compile TypeScript**:
+3. **Build the extension**:
    ```bash
+   # Development build (webpack bundling)
    npm run compile
+   
+   # Production build (minified)
+   npm run package
    ```
 
 4. **Install the extension**:
@@ -235,7 +239,7 @@ If you see "keyring couldn't be identified":
 
 ### Development Workflow
 
-1. **Watch for changes** (auto-compile):
+1. **Watch for changes** (auto-compile with webpack):
    ```bash
    npm run watch
    ```
@@ -244,9 +248,13 @@ If you see "keyring couldn't be identified":
    - Press `F5` in VSCode/Cursor
    - Or use "Run Extension" in the Run and Debug panel
 
-3. **Manual compile**:
+3. **Manual builds**:
    ```bash
+   # Development build
    npm run compile
+   
+   # Production build (minified)
+   npm run package
    ```
 
 4. **After making changes**:
@@ -255,4 +263,4 @@ If you see "keyring couldn't be identified":
 
 ---
 
-*For technical details and development information, see [PROJECT-SCOPE.md](PROJECT-SCOPE.md)*
+*For technical details and development information, see PROJECT-SCOPE.md*
