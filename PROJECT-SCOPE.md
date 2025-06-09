@@ -57,11 +57,12 @@ This extension is designed to work seamlessly across all major operating systems
 ### 4. File Operations
 - **On-demand File Access**: Files only downloaded when opened
 - **Persistent Temporary Files**: Organized directory structure preserving remote paths
-- **Connection-specific Storage**: `/tmp/remote-file-browser/connection-name/remote/path/file.txt`
+- **Connection-specific Storage**: `/tmp/remote-file-browser/{sanitized-username-host-port}/remote/path/file.txt`
+  - Directory names use sanitized connection identifiers (e.g., `user@example.com:22` becomes `user-at-example.com-22`)
 - **Override Prompts**: Ask user when opening existing temp files whether to use cached or download fresh
 - **Auto-sync on Save**: Changes automatically uploaded to remote server when file is saved
 - **File Watcher**: Monitors local temp files for changes and syncs back
-- **Manual Cleanup**: User-controlled cleanup via dedicated commands and GUI buttons
+- **Manual Cleanup**: User-controlled cleanup via dedicated commands and GUI buttons with connection-specific targeting
 - **Push to Remote**: Right-click local file tabs to upload files to selected remote directories
 - **Parent Directory Navigation**: Navigate up directory levels with dedicated toolbar button
 - **Right-click File Operations**: Context menu on remote files and directories with:
@@ -221,6 +222,22 @@ src/
 - **Advanced Connection Manager UI**: Extended form with optional timeout and retry configuration settings
 - **Robust Error Recovery**: Improved operation-level recovery with intelligent reconnection and health status tracking
 
+### Phase 12: Connection-Specific Cleanup and Code Refinement
+- **Connection-Specific Cleanup**: Modified file tree trash icon to delete temp files for current connection only (instead of all connections)
+- **Multi-Layered Connection ID System**: Implemented separation of concerns with different ID formats for filesystem paths, file watcher tracking, and credential storage
+- **Cross-Platform Safety**: Enhanced filesystem sanitization to handle @ and : symbols safely across Windows, macOS, and Linux
+- **Code Cleanup**: Removed vestigial `sanitizeForFilename()` function and clarified connection identification architecture
+- **Directory Structure Consistency**: Fixed temp file targeting to use consistent `getConnectionTempDir()` approach for reliable cleanup operations
+- **User Experience Enhancement**: File tree cleanup now contextual to current connection while connection manager provides global cleanup option
+
+### Phase 13: Welcome Screen Double-Click Prevention
+- **Root Cause Discovery**: Identified VSCode tree item command argument parsing bug that misinterpreted connection indexes as file paths (e.g., `/2`)
+- **Dynamic Command Registration**: Implemented pre-registration of individual commands for each connection index (`remoteFileBrowser.connectFromWelcome.0`, `.1`, etc.)
+- **Argument-Free Commands**: Eliminated command arguments entirely to prevent VSCode argument parsing issues
+- **Global Connection Lock**: Added simple boolean flag (`isAnyConnectionInProgress`) to prevent concurrent connection attempts
+- **Bulletproof Double-Click Prevention**: Commands are pre-registered at extension startup with embedded connection indexes, eliminating race conditions
+- **Scalable Architecture**: Supports up to 20 connections with easily adjustable command registration loop
+
 ## Configuration Schema
 ```json
 {
@@ -276,6 +293,43 @@ src/
 - Temporary files organized in connection-specific directories with sanitized names
 - Manual cleanup of temporary files and watchers prevents sensitive data accumulation
 - Cross-platform filesystem safety with character sanitization for folder names
+
+## Connection Identification System
+
+The extension uses a multi-layered approach to connection identification, with different ID formats optimized for specific purposes:
+
+### 1. File System Paths (Safe Directory Names)
+- **Format**: `username-host-port` (e.g., `admin-example.com-22`)
+- **Function**: `getConnectionTempDir()` → `sanitizeFileName()`
+- **Purpose**: Creating temporary directories that are safe across all operating systems
+- **Sanitization**: Converts unsafe characters (`@`, `:`, `\`, `/`, etc.) to safe alternatives
+- **Usage**: Temp file storage at `/tmp/remote-file-browser/{sanitized-name}/`
+
+### 2. File Watcher Tracking (Logical Identification)
+- **Format**: `username@host:port` (e.g., `admin@example.com:22`)
+- **Function**: `generateConnectionId()`
+- **Purpose**: Logical identification for file watchers and connection validation
+- **Human-readable**: Used in error messages and user feedback
+- **Usage**: Tracking which connection each opened file belongs to for security validation
+
+### 3. Credential Storage (Unique Keys)
+- **Format**: `protocol-username-host-port` (e.g., `sftp-admin-example.com-22`)
+- **Function**: `CredentialManager.generateConnectionId()`
+- **Purpose**: Unique credential storage keys that differentiate between protocols
+- **Protocol-aware**: Prevents SFTP and FTP credentials from conflicting on same server
+- **Usage**: VSCode SecretStorage API keys for passwords and passphrases
+
+### Connection Cleanup Implementation
+- **File Tree Trash Icon**: Deletes temp files for current connection only (uses filesystem-safe directory targeting)
+- **Connection Manager Cleanup**: Deletes temp files for ALL connections (global cleanup)
+- **File Watcher Cleanup**: Uses logical connection IDs to dispose watchers for specific connections
+- **Security Validation**: Prevents files from being saved to wrong servers using logical connection matching
+
+### Welcome Screen Command Architecture
+- **Dynamic Command Registration**: Pre-registers individual commands for each connection index at extension startup
+- **Argument-Free Design**: Commands like `remoteFileBrowser.connectFromWelcome.2` eliminate VSCode argument parsing issues
+- **Double-Click Prevention**: Global connection lock (`isAnyConnectionInProgress`) prevents concurrent connection attempts
+- **Scalable Registration**: Loop-based registration supports configurable number of connections (default: 20)
 
 ## Known Limitations
 - Requires system keyring software for secure credential storage

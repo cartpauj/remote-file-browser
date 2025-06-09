@@ -101,7 +101,7 @@ export class ConnectionManagerView {
                 break;
 
             case 'cleanupTempFiles':
-                vscode.commands.executeCommand('remoteFileBrowser.cleanupTempFiles');
+                vscode.commands.executeCommand('remoteFileBrowser.cleanupAllTempFiles');
                 break;
 
             case 'openTempDirectory':

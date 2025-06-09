@@ -78,9 +78,14 @@
 			},
 			{
 				"command": "remoteFileBrowser.cleanupTempFiles",
-				"title": "Clean Up Temporary Files",
+				"title": "Clean Up Connection Temp Files",
 				"category": "Remote File Browser",
 				"icon": "$(trash)"
+			},
+			{
+				"command": "remoteFileBrowser.cleanupAllTempFiles",
+				"title": "Clean Up All Temp Files",
+				"category": "Remote File Browser"
 			},
 			{
 				"command": "remoteFileBrowser.connectFromWelcome",
@@ -107,6 +112,11 @@
 			{
 				"command": "remoteFileBrowser.renameFile",
 				"title": "Rename",
+				"category": "Remote File Browser"
+			},
+			{
+				"command": "remoteFileBrowser.connectFromWelcomeDebounced",
+				"title": "Connect from Welcome (Debounced)",
 				"category": "Remote File Browser"
 			}
 		],
@@ -201,6 +211,9 @@
 				},
 				{
 					"command": "remoteFileBrowser.cleanupTempFiles"
+				},
+				{
+					"command": "remoteFileBrowser.cleanupAllTempFiles"
 				},
 				{
 					"command": "remoteFileBrowser.connectFromWelcome"

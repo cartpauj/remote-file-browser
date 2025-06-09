@@ -5,6 +5,20 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.2] - 2025-06-09
+
+### Fixed
+- **Welcome Screen Double-Click Prevention**: Fixed "Actual command not found" error when double-clicking connections in welcome screen
+- **VSCode Command Argument Bug**: Resolved issue where VSCode misinterpreted connection indexes as file paths (e.g., `/2`)
+- **Connection-Specific Cleanup**: Fixed trash icon to delete temp files for current connection only instead of all connections
+- **Directory Structure Targeting**: Corrected temp file cleanup to use proper connection-specific directory paths
+
+### Enhanced
+- **Dynamic Command Registration**: Pre-registers individual commands for each connection to eliminate argument parsing issues
+- **Global Connection Lock**: Added bulletproof double-click prevention with simple boolean flag
+- **Argument-Free Commands**: Eliminated command arguments entirely for more reliable VSCode tree item command execution
+- **Multi-Layered Connection ID System**: Clarified separation of concerns for filesystem paths, file watcher tracking, and credential storage
+
 ## [2.3.1] - 2025-06-09
 
 ### Fixed

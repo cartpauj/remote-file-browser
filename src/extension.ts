@@ -15,6 +15,7 @@ let credentialManager: CredentialManager;
 let welcomeViewProvider: WelcomeViewProvider;
 let currentSelectedDirectory: RemoteFileItem | undefined;
 let treeDataProvider: vscode.TreeView<RemoteFileItem>;
+let isAnyConnectionInProgress = false; // Global flag to prevent all connection attempts
 
 // Global file watchers storage with connection tracking
 interface FileWatcherInfo {
@@ -64,6 +65,31 @@ export function activate(context: vscode.ExtensionContext) {
         showCollapseAll: false
     });
 
+    // Register dynamic commands for each connection (up to 20 connections)
+    for (let i = 0; i < 20; i++) {
+        context.subscriptions.push(
+            vscode.commands.registerCommand(`remoteFileBrowser.connectFromWelcome.${i}`, async () => {
+                // GLOBAL LOCK: If any connection is in progress, ignore all clicks
+                if (isAnyConnectionInProgress) {
+                    console.log(`Connection attempt ignored for index ${i} - another connection already in progress`);
+                    return;
+                }
+                
+                // Set global lock
+                isAnyConnectionInProgress = true;
+                console.log('Starting connection to index:', i);
+                welcomeViewProvider.setConnecting(i, true);
+                
+                try {
+                    await connectToSavedConnection(i);
+                } finally {
+                    welcomeViewProvider.setConnecting(i, false);
+                    isAnyConnectionInProgress = false; // Release global lock
+                }
+            })
+        );
+    }
+
     context.subscriptions.push(
         vscode.commands.registerCommand('remoteFileBrowser.connect', async () => {
             await connectToRemoteServer();
@@ -94,7 +120,11 @@ export function activate(context: vscode.ExtensionContext) {
         }),
 
         vscode.commands.registerCommand('remoteFileBrowser.cleanupTempFiles', async () => {
-            await cleanupTempFiles();
+            await cleanupCurrentConnectionTempFiles();
+        }),
+
+        vscode.commands.registerCommand('remoteFileBrowser.cleanupAllTempFiles', async () => {
+            await cleanupAllTempFiles();
         }),
 
         vscode.commands.registerCommand('remoteFileBrowser.pushToRemote', async (resourceUri) => {
@@ -110,6 +140,7 @@ export function activate(context: vscode.ExtensionContext) {
                 updateNavigationContext();
             }, 50);
         }),
+
 
         vscode.commands.registerCommand('remoteFileBrowser.connectFromWelcome', async (connectionIndex) => {
             const index = typeof connectionIndex === 'string' ? parseInt(connectionIndex, 10) : connectionIndex;
@@ -343,6 +374,7 @@ async function disconnectFromRemoteServer() {
     }
 }
 
+
 function sanitizeFileName(name: string): string {
     const windowsReserved = ['CON', 'PRN', 'AUX', 'NUL', 'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9', 'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9'];
     
@@ -494,10 +526,107 @@ async function openRemoteFile(item: any) {
     }
 }
 
-async function cleanupTempFiles() {
+async function cleanupCurrentConnectionTempFiles() {
+    try {
+        if (!connectionManager.isConnected()) {
+            vscode.window.showWarningMessage('No active connection. Cannot clean up temp files.');
+            return;
+        }
+
+        const connectionInfo = connectionManager.getConnectionInfo();
+        if (!connectionInfo) {
+            vscode.window.showWarningMessage('No connection information available.');
+            return;
+        }
+
+        const connectionId = generateConnectionId(connectionInfo);
+        const choice = await vscode.window.showWarningMessage(
+            `This will delete temporary files for the current connection (${connectionId}). Any open files from this server may no longer sync when saved. Continue?`,
+            { modal: true },
+            'Delete Connection Temp Files',
+            'Cancel'
+        );
+        
+        if (choice !== 'Delete Connection Temp Files') {
+            return;
+        }
+
+        // Clean up file watchers for this connection only
+        if (global.remoteFileWatchers) {
+            const toRemove: string[] = [];
+            for (const [key, watcherInfo] of global.remoteFileWatchers.entries()) {
+                if (watcherInfo.connectionId === connectionId) {
+                    try {
+                        if (watcherInfo && watcherInfo.disposable && typeof watcherInfo.disposable.dispose === 'function') {
+                            watcherInfo.disposable.dispose();
+                        }
+                        toRemove.push(key);
+                    } catch (error) {
+                        console.warn('Failed to dispose file watcher:', error);
+                    }
+                }
+            }
+            toRemove.forEach(key => global.remoteFileWatchers?.delete(key));
+        }
+        
+        // Delete only the current connection's temp directory
+        const connectionTempDir = vscode.Uri.file(getConnectionTempDir());
+        let deletedCount = 0;
+        
+        try {
+            // Check if connection directory exists first
+            try {
+                await vscode.workspace.fs.stat(connectionTempDir);
+                
+                // Recursively count and delete files for this connection only
+                async function countAndDeleteDir(dirUri: vscode.Uri): Promise<number> {
+                    let count = 0;
+                    try {
+                        const items = await vscode.workspace.fs.readDirectory(dirUri);
+                        for (const [name, type] of items) {
+                            const itemUri = vscode.Uri.joinPath(dirUri, name);
+                            if (type === vscode.FileType.Directory) {
+                                count += await countAndDeleteDir(itemUri);
+                            } else {
+                                await vscode.workspace.fs.delete(itemUri);
+                                count++;
+                            }
+                        }
+                        await vscode.workspace.fs.delete(dirUri);
+                    } catch (error) {
+                        console.warn(`Failed to delete directory ${dirUri.fsPath}:`, error);
+                    }
+                    return count;
+                }
+                
+                deletedCount = await countAndDeleteDir(connectionTempDir);
+                
+            } catch (statError) {
+                // Directory doesn't exist, which is fine
+                console.log('Connection temp directory does not exist:', connectionTempDir.fsPath);
+            }
+            
+            if (deletedCount > 0) {
+                vscode.window.showInformationMessage(`Deleted ${deletedCount} temporary files for connection: ${connectionId}`);
+            } else {
+                vscode.window.showInformationMessage(`No temporary files found for connection: ${connectionId}`);
+            }
+            
+        } catch (error) {
+            console.error('Error cleaning up connection temp files:', error);
+            vscode.window.showErrorMessage(`Failed to clean up temporary files: ${error}`);
+        }
+        
+    } catch (error) {
+        console.error('Error in cleanupCurrentConnectionTempFiles:', error);
+        vscode.window.showErrorMessage(`Failed to clean up temporary files: ${error}`);
+    }
+}
+
+async function cleanupAllTempFiles() {
     try {
         const choice = await vscode.window.showWarningMessage(
-            'This will delete all temporary files created by Remote File Browser. Any open files may no longer sync when saved. Continue?',
+            'This will delete ALL temporary files from ALL connections created by Remote File Browser. Any open files may no longer sync when saved. Continue?',
             { modal: true },
             'Delete All Temp Files',
             'Cancel'

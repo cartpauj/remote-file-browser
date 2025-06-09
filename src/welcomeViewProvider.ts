@@ -11,6 +11,8 @@ export class WelcomeViewProvider implements vscode.TreeDataProvider<WelcomeItem>
     private _onDidChangeTreeData: vscode.EventEmitter<WelcomeItem | undefined | null | void> = new vscode.EventEmitter<WelcomeItem | undefined | null | void>();
     readonly onDidChangeTreeData: vscode.Event<WelcomeItem | undefined | null | void> = this._onDidChangeTreeData.event;
     private connectingIndexes: Set<number> = new Set();
+    private static activeConnections: Set<number> = new Set(); // Global lock across all instances
+    private static lastClickTimes: Map<number, number> = new Map(); // Debounce timestamps
 
     constructor(private context: vscode.ExtensionContext) {}
 
@@ -29,6 +31,38 @@ export class WelcomeViewProvider implements vscode.TreeDataProvider<WelcomeItem>
             this.connectingIndexes.delete(index);
         }
         this.refresh();
+    }
+
+    isConnecting(index: number): boolean {
+        return this.connectingIndexes.has(index);
+    }
+
+    // Debounce mechanism for connection clicks (500ms cooldown)
+    static isClickTooSoon(index: number): boolean {
+        const now = Date.now();
+        const lastClick = WelcomeViewProvider.lastClickTimes.get(index) || 0;
+        const timeSinceLastClick = now - lastClick;
+        
+        if (timeSinceLastClick < 500) { // 500ms debounce
+            return true; // Too soon, ignore this click
+        }
+        
+        // Update the last click time
+        WelcomeViewProvider.lastClickTimes.set(index, now);
+        return false; // Click is allowed
+    }
+
+    // Global synchronous lock methods for immediate double-click prevention
+    static tryLockConnection(index: number): boolean {
+        if (WelcomeViewProvider.activeConnections.has(index)) {
+            return false; // Already locked
+        }
+        WelcomeViewProvider.activeConnections.add(index);
+        return true; // Successfully locked
+    }
+
+    static unlockConnection(index: number): void {
+        WelcomeViewProvider.activeConnections.delete(index);
     }
 
     getTreeItem(element: WelcomeItem): vscode.TreeItem {
@@ -92,9 +126,8 @@ export class WelcomeViewProvider implements vscode.TreeDataProvider<WelcomeItem>
                 label: isConnecting ? `${connectionName} (Connecting...)` : connectionName,
                 iconPath: new vscode.ThemeIcon(isConnecting ? 'loading~spin' : 'plug'),
                 command: isConnecting ? undefined : {
-                    command: 'remoteFileBrowser.connectFromWelcome',
-                    title: 'Connect',
-                    arguments: [i]
+                    command: `remoteFileBrowser.connectFromWelcome.${i}`,
+                    title: 'Connect'
                 }
             });
         }
