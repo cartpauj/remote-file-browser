@@ -39,7 +39,10 @@ export class ConnectionManagerView {
             this.panel = undefined;
         });
 
-        this.loadConnections();
+        // Delay loading connections to ensure webview is ready
+        setTimeout(() => {
+            this.loadConnections();
+        }, 100);
     }
 
     private async handleMessage(message: any) {
@@ -118,6 +121,11 @@ export class ConnectionManagerView {
                 
                 // Always open terminal - simple and reliable across all platforms
                 this.openTempDirectoryInTerminal(tempDirPath);
+                break;
+
+            case 'webviewReady':
+                // Webview is ready, load connections
+                this.loadConnections();
                 break;
         }
     }
@@ -651,6 +659,16 @@ export class ConnectionManagerView {
                 document.getElementById('keyPath').value = message.path;
             }
         });
+
+        // Send ready message when webview is loaded
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                vscode.postMessage({ type: 'webviewReady' });
+            });
+        } else {
+            // DOM is already loaded
+            vscode.postMessage({ type: 'webviewReady' });
+        }
 
         // Handle form submission
         document.getElementById('connectionForm').addEventListener('submit', (e) => {
