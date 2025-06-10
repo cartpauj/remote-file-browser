@@ -94,14 +94,14 @@ src/
 ### Key Dependencies
 
 #### Runtime Dependencies
-- `ssh2-sftp-client` (^9.1.0): SFTP client library with native PPK support for SSH file transfers
-- `basic-ftp` (^5.0.3): FTP client library for FTP connections
+- `ssh2-sftp-client` (^12.0.0): SFTP client library with enhanced EventEmitter handling and Node.js v20+ compatibility
+- `basic-ftp` (^5.0.5): FTP client library for FTP connections
 
 #### Development Dependencies
-- `@types/ssh2-sftp-client` (^9.0.4): TypeScript definitions for SFTP client
+- `@types/ssh2-sftp-client` (^9.0.4): TypeScript definitions for SFTP client (compatible with v12.0.0)
 - `@types/vscode` (^1.74.0): VSCode extension API TypeScript definitions
 - `@types/node` (16.x): Node.js TypeScript definitions
-- `typescript` (^4.9.4): TypeScript compiler
+- `typescript` (^5.8.3): TypeScript compiler with improved compatibility
 - `webpack` (^5.99.9): Module bundler for optimized distribution
 - `webpack-cli` (^6.0.1): Webpack command line interface
 - `ts-loader` (^9.5.2): TypeScript loader for webpack
@@ -268,6 +268,16 @@ src/
   - **Cross-Protocol Support**: Overwrite detection works for both SFTP (stat-based) and FTP (directory listing-based)
   - **Safe Operation Flow**: Operations only proceed with explicit user consent to overwrite existing files
 - **Enhanced User Experience**: All file operations now provide consistent behavior and protection against accidental data loss
+
+### Phase 16: Dependency Updates and EventEmitter Fixes
+- **Critical ssh2-sftp-client Update**: Upgraded from v9.1.0 to v12.0.0 to resolve EventEmitter-related errors
+  - **Fixed ".once is not a function" Error**: Eliminated TypeError that prevented file opening operations
+  - **Enhanced EventEmitter Handling**: Improved listener management with proper cleanup mechanisms
+  - **Node.js v20+ Compatibility**: Updated for better compatibility with modern Node.js versions
+  - **Simplified Architecture**: Removed automatic connection retry logic that caused EventEmitter complexity
+- **TypeScript Compiler Update**: Upgraded TypeScript from v4.9.4 to v5.8.3 for improved compatibility
+- **FTP Library Update**: Updated basic-ftp to v5.0.5 for enhanced stability
+- **Improved Error Handling**: Better connection reliability and reduced EventEmitter-related edge cases
 
 ## Configuration Schema
 ```json
