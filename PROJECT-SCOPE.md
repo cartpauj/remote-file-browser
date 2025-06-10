@@ -67,6 +67,7 @@ This extension is designed to work seamlessly across all major operating systems
 - **Parent Directory Navigation**: Navigate up directory levels with dedicated toolbar button
 - **Right-click File Operations**: Context menu on remote files and directories with:
   - **Rename**: Rename files and directories on the remote server with validation
+  - **Move**: Move files and directories to new paths with pre-populated input, validation, and comprehensive error handling
   - **Delete**: Delete files and directories from the remote server with confirmation prompts and recursive directory support
 
 ### 5. Security Features
@@ -237,6 +238,19 @@ src/
 - **Global Connection Lock**: Added simple boolean flag (`isAnyConnectionInProgress`) to prevent concurrent connection attempts
 - **Bulletproof Double-Click Prevention**: Commands are pre-registered at extension startup with embedded connection indexes, eliminating race conditions
 - **Scalable Architecture**: Supports up to 20 connections with easily adjustable command registration loop
+
+### Phase 14: File Move Operations with Enhanced UX
+- **Context Menu Move Feature**: Added "Move" option to right-click context menu for both files and directories
+- **Smart Input Dialog**: Pre-populated with current file path to save user typing, with real-time validation
+- **Comprehensive Error Handling**: Specific error messages and recovery suggestions for common failure scenarios:
+  - Directory doesn't exist errors with creation guidance
+  - Permission denied errors with chmod instructions
+  - File exists conflicts with resolution suggestions
+  - Network timeout errors with automatic retry option
+- **Editor Tab Synchronization**: Automatically updates open file tabs when files are moved, preserving cursor position and selection
+- **Temporary File Management**: Seamlessly moves local temp files to match new remote paths
+- **File Watcher Updates**: Maintains file synchronization for moved files that remain open in the editor
+- **Progress Feedback**: Real-time progress notifications during move operations with completion status
 
 ## Configuration Schema
 ```json

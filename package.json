@@ -115,6 +115,11 @@
 				"category": "Remote File Browser"
 			},
 			{
+				"command": "remoteFileBrowser.moveFile",
+				"title": "Move",
+				"category": "Remote File Browser"
+			},
+			{
 				"command": "remoteFileBrowser.connectFromWelcomeDebounced",
 				"title": "Connect from Welcome (Debounced)",
 				"category": "Remote File Browser"
@@ -180,12 +185,22 @@
 					"group": "1_modification"
 				},
 				{
+					"command": "remoteFileBrowser.moveFile",
+					"when": "view == remoteFilesList && viewItem == file",
+					"group": "1_modification"
+				},
+				{
 					"command": "remoteFileBrowser.deleteFile",
 					"when": "view == remoteFilesList && viewItem == file",
 					"group": "2_danger"
 				},
 				{
 					"command": "remoteFileBrowser.renameFile",
+					"when": "view == remoteFilesList && viewItem == directory",
+					"group": "1_modification"
+				},
+				{
+					"command": "remoteFileBrowser.moveFile",
 					"when": "view == remoteFilesList && viewItem == directory",
 					"group": "1_modification"
 				},
@@ -220,6 +235,10 @@
 				},
 				{
 					"command": "remoteFileBrowser.pushToRemote",
+					"when": "remoteFileBrowser.connected"
+				},
+				{
+					"command": "remoteFileBrowser.moveFile",
 					"when": "remoteFileBrowser.connected"
 				}
 			]

@@ -5,6 +5,27 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.3] - 2025-06-09
+
+### Added
+- **File Move Operation**: New "Move" context menu option for files and directories with comprehensive functionality
+  - Pre-populated input dialog with current file path to save user typing
+  - Real-time validation prevents invalid moves (empty paths, circular directory moves, etc.)
+  - Smart error handling with specific messages and recovery suggestions for common failure scenarios
+  - Automatic editor tab updates when moving open files (preserves cursor position and selection)
+  - Seamless temporary file synchronization to match new remote paths
+  - Progress notifications during move operations with completion status
+- **Tree Indentation Documentation**: Added user tip for improving VSCode tree view visibility
+
+### Enhanced
+- **Comprehensive Move Error Handling**: Detailed error messages and recovery options for:
+  - Directory doesn't exist errors with creation guidance
+  - Permission denied errors with chmod instructions  
+  - File exists conflicts with resolution suggestions
+  - Network timeout errors with automatic retry option
+- **Editor Integration**: Moving files automatically updates open editor tabs while preserving all editor state
+- **Command Palette Integration**: Added "Remote File Browser: Move File" command for keyboard access
+
 ## [2.3.2] - 2025-06-09
 
 ### Fixed

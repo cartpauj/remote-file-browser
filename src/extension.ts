@@ -160,6 +160,10 @@ export function activate(context: vscode.ExtensionContext) {
             await renameRemoteFile(item);
         }),
 
+        vscode.commands.registerCommand('remoteFileBrowser.moveFile', async (item) => {
+            await moveRemoteFile(item);
+        }),
+
         treeDataProvider,
         welcomeView
     );
@@ -929,6 +933,327 @@ async function renameRemoteFile(item: any) {
         const errorMessage = getUserFriendlyErrorMessage(error, `rename ${itemType}`);
         vscode.window.showErrorMessage(errorMessage);
     }
+}
+
+async function moveRemoteFile(item: any) {
+    const itemType = item.isDirectory ? 'directory' : 'file';
+    const currentPath = item.path;
+    let newPath: string | undefined;
+    
+    try {
+        if (!connectionManager.isConnected()) {
+            vscode.window.showErrorMessage('Not connected to remote server.');
+            return;
+        }
+        
+        // Show input box for new path, pre-populated with current path
+        newPath = await vscode.window.showInputBox({
+            prompt: `Enter new path for ${itemType} "${item.label}"`,
+            value: currentPath,
+            validateInput: (value) => {
+                if (!value || value.trim() === '') {
+                    return 'Path cannot be empty';
+                }
+                if (!value.startsWith('/')) {
+                    return 'Path must start with /';
+                }
+                if (value === currentPath) {
+                    return 'New path must be different from current path';
+                }
+                // Prevent moving a directory into itself
+                if (item.isDirectory && value.startsWith(currentPath + '/')) {
+                    return 'Cannot move directory into itself';
+                }
+                return null;
+            },
+            placeHolder: '/path/to/new/location'
+        });
+
+        if (!newPath) {
+            return;
+        }
+
+        // TypeScript assertion since we've already checked for null
+        const targetPath: string = newPath;
+
+        // Show progress for the move
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: `Moving ${itemType} "${item.label}"...`,
+            cancellable: false
+        }, async (progress) => {
+            progress.report({ increment: 0 });
+
+            try {
+                await connectionManager.renameFile(currentPath, targetPath);
+                progress.report({ increment: 50 });
+                
+                // Update temporary file paths if the file is currently open
+                await updateTempFileLocation(currentPath, targetPath);
+                progress.report({ increment: 100 });
+                
+                vscode.window.showInformationMessage(`Successfully moved ${itemType} to "${targetPath}"`);
+                
+                // Refresh the remote file tree
+                remoteFileProvider.refresh();
+                
+            } catch (moveError) {
+                throw new Error(`Move failed: ${moveError}`);
+            }
+        });
+
+    } catch (error) {
+        const itemType = item.isDirectory ? 'directory' : 'file';
+        const errorMessage = getMoveErrorMessage(error, item, newPath, itemType);
+        
+        // Show error with potential actions
+        const errorDetails = getMoveErrorDetails(error, newPath);
+        if (errorDetails.showRetry || errorDetails.suggestion) {
+            const actions: string[] = [];
+            if (errorDetails.showRetry) actions.push('Retry');
+            if (errorDetails.suggestion && errorDetails.actionLabel) actions.push(errorDetails.actionLabel);
+            
+            const result = await vscode.window.showErrorMessage(errorMessage, ...actions);
+            
+            if (result === 'Retry') {
+                // Retry the move operation
+                await moveRemoteFile(item);
+                return;
+            } else if (result === errorDetails.actionLabel && errorDetails.suggestion) {
+                vscode.window.showInformationMessage(errorDetails.suggestion);
+            }
+        } else {
+            vscode.window.showErrorMessage(errorMessage);
+        }
+    }
+}
+
+async function updateTempFileLocation(oldPath: string, newPath: string): Promise<void> {
+    // Check if this file has a temporary copy that needs to be moved
+    if (!global.remoteFileWatchers) {
+        return;
+    }
+    
+    for (const [tempUri, watcherInfo] of global.remoteFileWatchers.entries()) {
+        if (watcherInfo.remotePath === oldPath) {
+            try {
+                // Calculate old and new temp file paths
+                const connectionInfo = connectionManager.getConnectionInfo();
+                if (!connectionInfo) continue;
+                
+                const tempDir = os.tmpdir();
+                const sanitizedName = sanitizeFileName(`${connectionInfo.username}-${connectionInfo.host}-${connectionInfo.port}`);
+                const baseTempDir = path.join(tempDir, 'remote-file-browser', sanitizedName);
+                
+                const oldTempPath = path.join(baseTempDir, oldPath.startsWith('/') ? oldPath.substring(1) : oldPath);
+                const newTempPath = path.join(baseTempDir, newPath.startsWith('/') ? newPath.substring(1) : newPath);
+                
+                // Create new directory structure if needed
+                const newTempDir = path.dirname(newTempPath);
+                await vscode.workspace.fs.createDirectory(vscode.Uri.file(newTempDir));
+                
+                // Move the temp file
+                const oldTempUri = vscode.Uri.file(oldTempPath);
+                const newTempUri = vscode.Uri.file(newTempPath);
+                
+                try {
+                    await vscode.workspace.fs.stat(oldTempUri);
+                    await vscode.workspace.fs.copy(oldTempUri, newTempUri);
+                    await vscode.workspace.fs.delete(oldTempUri);
+                    
+                    // Update the watcher info
+                    global.remoteFileWatchers.delete(tempUri);
+                    global.remoteFileWatchers.set(newTempUri.toString(), {
+                        ...watcherInfo,
+                        remotePath: newPath
+                    });
+                    
+                    // Update editor tab if the file is currently open
+                    await updateEditorTab(oldTempUri, newTempUri, newPath);
+                    
+                    console.log(`Updated temp file location: ${oldTempPath} -> ${newTempPath}`);
+                } catch (statError) {
+                    // Temp file doesn't exist, just update the watcher info
+                    global.remoteFileWatchers.delete(tempUri);
+                    global.remoteFileWatchers.set(newTempUri.toString(), {
+                        ...watcherInfo,
+                        remotePath: newPath
+                    });
+                    
+                    // Still try to update editor tab if file is open
+                    await updateEditorTab(oldTempUri, newTempUri, newPath);
+                }
+            } catch (error) {
+                console.warn('Failed to update temp file location:', error);
+            }
+            break;
+        }
+    }
+}
+
+async function updateEditorTab(oldTempUri: vscode.Uri, newTempUri: vscode.Uri, newRemotePath: string): Promise<void> {
+    try {
+        // Find if the old file is currently open in any editor
+        const openDocument = vscode.workspace.textDocuments.find(doc => 
+            doc.uri.toString() === oldTempUri.toString()
+        );
+        
+        if (openDocument) {
+            // Find the editor showing this document
+            const editor = vscode.window.visibleTextEditors.find(ed => 
+                ed.document.uri.toString() === oldTempUri.toString()
+            );
+            
+            if (editor) {
+                // Store current selection and view state
+                const selection = editor.selection;
+                const visibleRanges = editor.visibleRanges;
+                
+                // Close the old document
+                await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+                
+                // Small delay to ensure the close operation completes
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // Open the new document
+                const newDocument = await vscode.workspace.openTextDocument(newTempUri);
+                const newEditor = await vscode.window.showTextDocument(newDocument);
+                
+                // Restore the selection and view state
+                newEditor.selection = selection;
+                if (visibleRanges.length > 0) {
+                    newEditor.revealRange(visibleRanges[0], vscode.TextEditorRevealType.InCenter);
+                }
+                
+                // Show a notification about the tab update
+                const fileName = path.basename(newRemotePath);
+                vscode.window.showInformationMessage(
+                    `Editor tab updated: "${fileName}" now points to ${newRemotePath}`
+                );
+                
+                console.log(`Updated editor tab: ${oldTempUri.fsPath} -> ${newTempUri.fsPath}`);
+            }
+        }
+    } catch (error) {
+        console.warn('Failed to update editor tab:', error);
+        // Don't throw error - this is a nice-to-have feature
+    }
+}
+
+function getMoveErrorMessage(error: any, item: any, newPath: string | undefined, itemType: string): string {
+    const errorMessage = error?.message || error?.toString() || '';
+    const currentPath = item.path;
+    const targetPath = newPath || 'unknown';
+    
+    // Directory doesn't exist errors
+    if (errorMessage.includes('No such file or directory') || 
+        errorMessage.includes('ENOENT') ||
+        errorMessage.includes('does not exist')) {
+        const targetDir = path.dirname(targetPath);
+        return `Cannot move ${itemType} to "${targetPath}": Directory "${targetDir}" does not exist.`;
+    }
+    
+    // Permission errors
+    if (errorMessage.includes('Permission denied') || 
+        errorMessage.includes('EACCES') ||
+        errorMessage.includes('Access denied')) {
+        return `Cannot move ${itemType} to "${targetPath}": Permission denied. Check that you have write access to the target directory.`;
+    }
+    
+    // File already exists errors
+    if (errorMessage.includes('File exists') || 
+        errorMessage.includes('EEXIST') ||
+        errorMessage.includes('already exists')) {
+        return `Cannot move ${itemType} to "${targetPath}": A file or directory with that name already exists.`;
+    }
+    
+    // Disk space errors
+    if (errorMessage.includes('No space left') || 
+        errorMessage.includes('ENOSPC')) {
+        return `Cannot move ${itemType} to "${targetPath}": No space left on device.`;
+    }
+    
+    // Connection errors
+    if (errorMessage.includes('ECONNRESET') || 
+        errorMessage.includes('Connection lost') || 
+        errorMessage.includes('Connection closed')) {
+        return `Failed to move ${itemType}: Connection to server was lost. The connection has been restored automatically.`;
+    }
+    
+    // Timeout errors
+    if (errorMessage.includes('ETIMEDOUT') || 
+        errorMessage.includes('timeout')) {
+        return `Failed to move ${itemType}: Operation timed out. Please check your network connection.`;
+    }
+    
+    // Cross-device/filesystem errors
+    if (errorMessage.includes('Invalid cross-device link') || 
+        errorMessage.includes('EXDEV')) {
+        return `Cannot move ${itemType} to "${targetPath}": Cannot move across different filesystems or devices.`;
+    }
+    
+    // Generic fallback
+    return `Failed to move ${itemType} from "${currentPath}" to "${targetPath}": ${errorMessage}`;
+}
+
+function getMoveErrorDetails(error: any, newPath: string | undefined): {
+    showRetry: boolean,
+    suggestion?: string,
+    actionLabel?: string
+} {
+    const errorMessage = error?.message || error?.toString() || '';
+    const targetDir = newPath ? path.dirname(newPath) : '';
+    
+    // Directory doesn't exist - offer helpful suggestion
+    if (errorMessage.includes('No such file or directory') || 
+        errorMessage.includes('ENOENT') ||
+        errorMessage.includes('does not exist')) {
+        return {
+            showRetry: false,
+            suggestion: `To fix this, first create the directory "${targetDir}" using your server's file manager or terminal, then try moving the file again.`,
+            actionLabel: 'How to Fix'
+        };
+    }
+    
+    // Permission errors - offer helpful suggestion
+    if (errorMessage.includes('Permission denied') || 
+        errorMessage.includes('EACCES') ||
+        errorMessage.includes('Access denied')) {
+        return {
+            showRetry: false,
+            suggestion: `To fix this, check that you have write permissions for the target directory "${targetDir}". You may need to change permissions using chmod or contact your system administrator.`,
+            actionLabel: 'How to Fix'
+        };
+    }
+    
+    // File already exists - offer helpful suggestion
+    if (errorMessage.includes('File exists') || 
+        errorMessage.includes('EEXIST') ||
+        errorMessage.includes('already exists')) {
+        return {
+            showRetry: false,
+            suggestion: `A file or directory already exists at "${newPath}". Choose a different name or delete the existing file first.`,
+            actionLabel: 'How to Fix'
+        };
+    }
+    
+    // Connection errors - offer retry
+    if (errorMessage.includes('ECONNRESET') || 
+        errorMessage.includes('Connection lost') || 
+        errorMessage.includes('Connection closed') ||
+        errorMessage.includes('ETIMEDOUT') || 
+        errorMessage.includes('timeout')) {
+        return {
+            showRetry: true,
+            suggestion: 'This is usually a temporary network issue. The connection has been restored automatically.',
+            actionLabel: 'Network Info'
+        };
+    }
+    
+    // No special handling needed
+    return {
+        showRetry: false
+    };
 }
 
 export function deactivate() {

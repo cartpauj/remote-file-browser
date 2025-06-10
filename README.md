@@ -40,6 +40,13 @@ A VSCode/Cursor extension that lets you browse and edit remote files via SFTP/FT
 - Use the **arrow-up button** (⬆️) in the toolbar to navigate to parent directories
 - Select directories in the tree to use as upload destinations for local files
 
+**💡 Tip: Better Tree Indentation**
+If nested folders are hard to see, increase VSCode's tree indentation:
+1. Open Settings (`Ctrl+,` / `Cmd+,`)
+2. Search for "tree indent"
+3. Change **"Workbench › Tree: Indent"** from 8 to 16 or 20 pixels
+4. This improves visibility for all tree views in VSCode!
+
 ### Editing Files
 - Files open instantly in your editor
 - Make changes and save normally (`Ctrl+S` / `Cmd+S`)
@@ -71,6 +78,26 @@ You can rename or delete files and directories directly on the remote server:
 5. The file or directory will be permanently deleted from the remote server
 
 **⚠️ Warning**: Deleted files and directories cannot be recovered. Use caution when deleting.
+
+#### Moving Files and Directories
+1. **Right-click** on any file or directory in the remote file tree
+2. Select **"Move"** from the context menu
+3. **Edit the path** in the input dialog (pre-populated with current path)
+4. Press **Enter** to confirm the move operation
+5. The file or directory will be moved to the new location on the remote server
+6. If the file is currently open in your editor, the tab will automatically update to reflect the new path
+
+**📝 Move Features**: 
+- **Pre-populated paths** save you from typing the full path again
+- **Real-time validation** prevents invalid moves (empty paths, circular directory moves, etc.)
+- **Smart error handling** with helpful suggestions when moves fail
+- **Editor tab updates** automatically when moving open files
+- **Progress notifications** show move status and completion
+
+**Common Move Examples**:
+- Move `/var/www/app.php` to `/var/www/backup/app.php` (same filename, different directory)
+- Move `/home/user/temp.txt` to `/home/user/documents/notes.txt` (rename and move)
+- Move `/project/old-folder/` to `/project/archive/old-folder/` (move entire directory)
 
 ### Switching Servers
 - Click the **X** (disconnect) button in the remote files view
@@ -142,6 +169,7 @@ Access these via `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (Mac):
 - **Remote File Browser: Push to Remote** - Upload current local file to selected remote directory
 - **Remote File Browser: Go to Parent Directory** - Navigate up one directory level
 - **Remote File Browser: Rename File** - Rename selected file or directory on remote server
+- **Remote File Browser: Move File** - Move selected file or directory to a new path on remote server
 - **Remote File Browser: Delete File** - Delete selected file or directory from remote server
 
 ### Settings Configuration
