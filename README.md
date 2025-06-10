@@ -47,6 +47,17 @@ If nested folders are hard to see, increase VSCode's tree indentation:
 3. Change **"Workbench › Tree: Indent"** from 8 to 16 or 20 pixels
 4. This improves visibility for all tree views in VSCode!
 
+**💡 Tip: Customizing File Opening Behavior**
+Some users prefer different file opening behaviors. You can customize these in VSCode settings:
+1. Open Settings (`Ctrl+,` / `Cmd+,`)
+2. **Disable Preview Tabs**: Search for "workbench.editor.enablePreview" and set it to `false`
+   - This prevents files from opening in preview mode (italic tab names)
+   - Every file click will open in a permanent tab instead
+3. **Require Double-Click**: Search for "workbench.list.openMode" and change it to `"doubleClick"`
+   - This requires double-clicking to open files instead of single-clicking
+   - Applies to all tree views in VSCode, not just Remote File Browser
+4. These settings affect all VSCode file operations, providing a consistent experience across the editor
+
 ### Editing Files
 - Files open instantly in your editor
 - Make changes and save normally (`Ctrl+S` / `Cmd+S`)
@@ -84,12 +95,14 @@ You can rename or delete files and directories directly on the remote server:
 2. Select **"Move"** from the context menu
 3. **Edit the path** in the input dialog (pre-populated with current path)
 4. Press **Enter** to confirm the move operation
-5. The file or directory will be moved to the new location on the remote server
-6. If the file is currently open in your editor, the tab will automatically update to reflect the new path
+5. **Overwrite Protection**: If a file already exists at the target location, you'll be prompted to "Overwrite" or "Cancel"
+6. The file or directory will be moved to the new location on the remote server
+7. If the file is currently open in your editor, the tab will automatically update to reflect the new path
 
 **📝 Move Features**: 
 - **Pre-populated paths** save you from typing the full path again
 - **Real-time validation** prevents invalid moves (empty paths, circular directory moves, etc.)
+- **Overwrite protection** prevents accidental file replacement with confirmation dialog
 - **Smart error handling** with helpful suggestions when moves fail
 - **Editor tab updates** automatically when moving open files
 - **Progress notifications** show move status and completion
@@ -98,6 +111,29 @@ You can rename or delete files and directories directly on the remote server:
 - Move `/var/www/app.php` to `/var/www/backup/app.php` (same filename, different directory)
 - Move `/home/user/temp.txt` to `/home/user/documents/notes.txt` (rename and move)
 - Move `/project/old-folder/` to `/project/archive/old-folder/` (move entire directory)
+
+#### Copying Files and Directories
+1. **Right-click** on any file or directory in the remote file tree
+2. Select **"Copy"** from the context menu
+3. **Edit the target path** in the input dialog (pre-populated with current path)
+4. Press **Enter** to confirm the copy operation
+5. **Overwrite Protection**: If a file already exists at the target location, you'll be prompted to "Overwrite" or "Cancel"
+6. The file or directory will be copied to the new location on the remote server
+7. **For files**: The copied file will automatically open in a new editor tab alongside the original
+
+**📝 Copy Features**: 
+- **Pre-populated paths** save you from typing the full path again
+- **Real-time validation** prevents invalid copies (empty paths, circular directory copies, etc.)
+- **Overwrite protection** prevents accidental file replacement with confirmation dialog
+- **Smart error handling** with helpful suggestions when copies fail
+- **New tab behavior** opens copied files in separate tabs from originals
+- **Progress notifications** show copy status and completion
+- **Recursive directory copying** handles entire folder structures with all contents
+
+**Common Copy Examples**:
+- Copy `/var/www/app.php` to `/var/www/backup/app.php` (backup existing file)
+- Copy `/home/user/config.txt` to `/home/user/config-backup.txt` (create backup copy)
+- Copy `/project/template/` to `/project/new-site/` (duplicate entire directory structure)
 
 ### Switching Servers
 - Click the **X** (disconnect) button in the remote files view
@@ -170,6 +206,8 @@ Access these via `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (Mac):
 - **Remote File Browser: Go to Parent Directory** - Navigate up one directory level
 - **Remote File Browser: Rename File** - Rename selected file or directory on remote server
 - **Remote File Browser: Move File** - Move selected file or directory to a new path on remote server
+- **Remote File Browser: Copy File** - Copy selected file or directory to a new path on remote server
+- **Remote File Browser: Download File** - Download and open selected remote file in editor (same as double-clicking)
 - **Remote File Browser: Delete File** - Delete selected file or directory from remote server
 
 ### Settings Configuration

@@ -120,6 +120,16 @@
 				"category": "Remote File Browser"
 			},
 			{
+				"command": "remoteFileBrowser.copyFile",
+				"title": "Copy",
+				"category": "Remote File Browser"
+			},
+			{
+				"command": "remoteFileBrowser.downloadFile",
+				"title": "Download",
+				"category": "Remote File Browser"
+			},
+			{
 				"command": "remoteFileBrowser.connectFromWelcomeDebounced",
 				"title": "Connect from Welcome (Debounced)",
 				"category": "Remote File Browser"
@@ -180,7 +190,17 @@
 			],
 			"view/item/context": [
 				{
+					"command": "remoteFileBrowser.downloadFile",
+					"when": "view == remoteFilesList && viewItem == file",
+					"group": "0_access"
+				},
+				{
 					"command": "remoteFileBrowser.renameFile",
+					"when": "view == remoteFilesList && viewItem == file",
+					"group": "1_modification"
+				},
+				{
+					"command": "remoteFileBrowser.copyFile",
 					"when": "view == remoteFilesList && viewItem == file",
 					"group": "1_modification"
 				},
@@ -196,6 +216,11 @@
 				},
 				{
 					"command": "remoteFileBrowser.renameFile",
+					"when": "view == remoteFilesList && viewItem == directory",
+					"group": "1_modification"
+				},
+				{
+					"command": "remoteFileBrowser.copyFile",
 					"when": "view == remoteFilesList && viewItem == directory",
 					"group": "1_modification"
 				},
@@ -239,6 +264,14 @@
 				},
 				{
 					"command": "remoteFileBrowser.moveFile",
+					"when": "remoteFileBrowser.connected"
+				},
+				{
+					"command": "remoteFileBrowser.copyFile",
+					"when": "remoteFileBrowser.connected"
+				},
+				{
+					"command": "remoteFileBrowser.downloadFile",
 					"when": "remoteFileBrowser.connected"
 				}
 			]

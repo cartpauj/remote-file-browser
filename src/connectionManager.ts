@@ -419,6 +419,117 @@ export class ConnectionManager {
         }
     }
 
+    async fileExists(path: string): Promise<boolean> {
+        if (!this.isConnected()) {
+            throw new Error('Not connected to server');
+        }
+
+        try {
+            if (this.config?.protocol === 'sftp') {
+                if (!this.sftpClient) throw new Error('SFTP client not connected');
+                await this.withOperationTimeout(
+                    this.sftpClient.stat(path),
+                    'check file existence'
+                );
+                return true;
+            } else {
+                if (!this.ftpClient) throw new Error('FTP client not connected');
+                try {
+                    await this.withOperationTimeout(
+                        this.ftpClient.size(path),
+                        'check file existence'
+                    );
+                    return true;
+                } catch (error) {
+                    // For FTP, try to list the parent directory and check if file exists
+                    const parentPath = path.substring(0, path.lastIndexOf('/')) || '/';
+                    const fileName = path.substring(path.lastIndexOf('/') + 1);
+                    const files = await this.withOperationTimeout(
+                        this.ftpClient.list(parentPath),
+                        'list directory for file check'
+                    );
+                    return files.some((file: any) => file.name === fileName);
+                }
+            }
+        } catch (error) {
+            // If we get an error (like "No such file"), the file doesn't exist
+            return false;
+        }
+    }
+
+    async copyFile(sourcePath: string, targetPath: string, isDirectory: boolean = false): Promise<void> {
+        if (!this.isConnected()) {
+            throw new Error('Not connected to server');
+        }
+
+        try {
+            if (isDirectory) {
+                await this.copyDirectoryRecursive(sourcePath, targetPath);
+            } else {
+                // Read file content and write to new location
+                const content = await this.readFile(sourcePath);
+                await this.writeFile(targetPath, content);
+            }
+        } catch (error) {
+            if (this.isConnectionError(error)) {
+                console.log('Connection lost while copying file, attempting to reconnect...');
+                await this.reconnect();
+                // Retry the operation after reconnecting
+                if (isDirectory) {
+                    await this.copyDirectoryRecursive(sourcePath, targetPath);
+                } else {
+                    const content = await this.readFile(sourcePath);
+                    await this.writeFile(targetPath, content);
+                }
+            } else {
+                throw error;
+            }
+        }
+    }
+
+    private async copyDirectoryRecursive(sourcePath: string, targetPath: string): Promise<void> {
+        // Create the target directory first
+        if (this.config?.protocol === 'sftp') {
+            if (!this.sftpClient) throw new Error('SFTP client not connected');
+            try {
+                await this.withOperationTimeout(
+                    this.sftpClient.mkdir(targetPath),
+                    'create directory'
+                );
+            } catch (error) {
+                // Directory might already exist, check if it's not a "file exists" error
+                if (!(error as any).message?.includes('File exists') && 
+                    !(error as any).message?.includes('EEXIST')) {
+                    throw error;
+                }
+            }
+        } else {
+            if (!this.ftpClient) throw new Error('FTP client not connected');
+            try {
+                await this.withOperationTimeout(
+                    this.ftpClient.ensureDir(targetPath),
+                    'create directory'
+                );
+            } catch (error) {
+                // Ignore if directory already exists
+            }
+        }
+
+        // List and copy all files in the source directory
+        const files = await this.listFiles(sourcePath);
+        for (const file of files) {
+            const sourceFilePath = sourcePath === '/' ? `/${file.name}` : `${sourcePath}/${file.name}`;
+            const targetFilePath = targetPath === '/' ? `/${file.name}` : `${targetPath}/${file.name}`;
+            
+            if (file.isDirectory) {
+                await this.copyDirectoryRecursive(sourceFilePath, targetFilePath);
+            } else {
+                const content = await this.readFile(sourceFilePath);
+                await this.writeFile(targetFilePath, content);
+            }
+        }
+    }
+
     private async deleteFileSftp(path: string, isDirectory: boolean): Promise<void> {
         if (!this.sftpClient) throw new Error('SFTP client not connected');
 

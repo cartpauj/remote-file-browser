@@ -164,6 +164,14 @@ export function activate(context: vscode.ExtensionContext) {
             await moveRemoteFile(item);
         }),
 
+        vscode.commands.registerCommand('remoteFileBrowser.copyFile', async (item) => {
+            await copyRemoteFile(item);
+        }),
+
+        vscode.commands.registerCommand('remoteFileBrowser.downloadFile', async (item) => {
+            await openRemoteFile(item);
+        }),
+
         treeDataProvider,
         welcomeView
     );
@@ -459,7 +467,7 @@ async function openRemoteFile(item: any) {
         }
         
         const document = await vscode.workspace.openTextDocument(tempUri);
-        await vscode.window.showTextDocument(document);
+        await vscode.window.showTextDocument(document, { preview: false });
 
         // Get current connection info for this file
         const currentConnection = connectionManager.getConnectionInfo();
@@ -976,6 +984,22 @@ async function moveRemoteFile(item: any) {
         // TypeScript assertion since we've already checked for null
         const targetPath: string = newPath;
 
+        // Check if target file already exists
+        const targetExists = await connectionManager.fileExists(targetPath);
+        if (targetExists) {
+            const fileName = path.basename(targetPath);
+            const choice = await vscode.window.showWarningMessage(
+                `A ${itemType} named "${fileName}" already exists at the target location. What would you like to do?`,
+                { modal: true },
+                'Overwrite',
+                'Cancel'
+            );
+            
+            if (choice !== 'Overwrite') {
+                return; // User cancelled
+            }
+        }
+
         // Show progress for the move
         await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
@@ -1255,6 +1279,180 @@ function getMoveErrorDetails(error: any, newPath: string | undefined): {
         showRetry: false
     };
 }
+
+async function copyRemoteFile(item: any) {
+    const itemType = item.isDirectory ? 'directory' : 'file';
+    const currentPath = item.path;
+    let newPath: string | undefined;
+    
+    try {
+        if (!connectionManager.isConnected()) {
+            vscode.window.showErrorMessage('Not connected to remote server.');
+            return;
+        }
+        
+        // Show input box for new path, pre-populated with current path
+        newPath = await vscode.window.showInputBox({
+            prompt: `Enter new path for ${itemType} copy "${item.label}"`,
+            value: currentPath,
+            validateInput: (value) => {
+                if (!value || value.trim() === '') {
+                    return 'Path cannot be empty';
+                }
+                if (!value.startsWith('/')) {
+                    return 'Path must start with /';
+                }
+                if (value === currentPath) {
+                    return 'New path must be different from current path';
+                }
+                // Prevent copying a directory into itself
+                if (item.isDirectory && value.startsWith(currentPath + '/')) {
+                    return 'Cannot copy directory into itself';
+                }
+                return null;
+            },
+            placeHolder: '/path/to/new/copy'
+        });
+
+        if (!newPath) {
+            return;
+        }
+
+        // TypeScript assertion since we've already checked for null
+        const targetPath: string = newPath;
+
+        // Check if target file already exists
+        const targetExists = await connectionManager.fileExists(targetPath);
+        if (targetExists) {
+            const fileName = path.basename(targetPath);
+            const choice = await vscode.window.showWarningMessage(
+                `A ${itemType} named "${fileName}" already exists at the target location. What would you like to do?`,
+                { modal: true },
+                'Overwrite',
+                'Cancel'
+            );
+            
+            if (choice !== 'Overwrite') {
+                return; // User cancelled
+            }
+        }
+
+        // Show progress for the copy
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: `Copying ${itemType} "${item.label}"...`,
+            cancellable: false
+        }, async (progress) => {
+            progress.report({ increment: 0 });
+
+            try {
+                await connectionManager.copyFile(currentPath, targetPath, item.isDirectory);
+                progress.report({ increment: 80 });
+                
+                vscode.window.showInformationMessage(`Successfully copied ${itemType} to "${targetPath}"`);
+                
+                // Refresh the remote file tree
+                remoteFileProvider.refresh();
+                progress.report({ increment: 90 });
+                
+                // Open the copied file in editor if it's a file (not directory)
+                if (!item.isDirectory) {
+                    const copiedItem = {
+                        path: targetPath,
+                        label: path.basename(targetPath),
+                        isDirectory: false
+                    };
+                    await openRemoteFile(copiedItem);
+                }
+                
+                progress.report({ increment: 100 });
+                
+            } catch (copyError) {
+                throw new Error(`Copy failed: ${copyError}`);
+            }
+        });
+
+    } catch (error) {
+        const errorMessage = getCopyErrorMessage(error, item, newPath, itemType);
+        
+        // Show error with potential actions (reuse move error logic)
+        const errorDetails = getMoveErrorDetails(error, newPath);
+        if (errorDetails.showRetry || errorDetails.suggestion) {
+            const actions: string[] = [];
+            if (errorDetails.showRetry) actions.push('Retry');
+            if (errorDetails.suggestion && errorDetails.actionLabel) actions.push(errorDetails.actionLabel);
+            
+            const result = await vscode.window.showErrorMessage(errorMessage, ...actions);
+            
+            if (result === 'Retry') {
+                // Retry the copy operation
+                await copyRemoteFile(item);
+                return;
+            } else if (result === errorDetails.actionLabel && errorDetails.suggestion) {
+                vscode.window.showInformationMessage(errorDetails.suggestion);
+            }
+        } else {
+            vscode.window.showErrorMessage(errorMessage);
+        }
+    }
+}
+
+function getCopyErrorMessage(error: any, item: any, newPath: string | undefined, itemType: string): string {
+    const errorMessage = error?.message || error?.toString() || '';
+    const currentPath = item.path;
+    const targetPath = newPath || 'unknown';
+    
+    // Directory doesn't exist errors
+    if (errorMessage.includes('No such file or directory') || 
+        errorMessage.includes('ENOENT') ||
+        errorMessage.includes('does not exist')) {
+        const targetDir = path.dirname(targetPath);
+        return `Cannot copy ${itemType} to "${targetPath}": Directory "${targetDir}" does not exist.`;
+    }
+    
+    // Permission errors
+    if (errorMessage.includes('Permission denied') || 
+        errorMessage.includes('EACCES') ||
+        errorMessage.includes('Access denied')) {
+        return `Cannot copy ${itemType} to "${targetPath}": Permission denied. Check that you have write access to the target directory.`;
+    }
+    
+    // File already exists errors
+    if (errorMessage.includes('File exists') || 
+        errorMessage.includes('EEXIST') ||
+        errorMessage.includes('already exists')) {
+        return `Cannot copy ${itemType} to "${targetPath}": A file or directory with that name already exists.`;
+    }
+    
+    // Disk space errors
+    if (errorMessage.includes('No space left') || 
+        errorMessage.includes('ENOSPC')) {
+        return `Cannot copy ${itemType} to "${targetPath}": No space left on device.`;
+    }
+    
+    // Connection errors
+    if (errorMessage.includes('ECONNRESET') || 
+        errorMessage.includes('Connection lost') || 
+        errorMessage.includes('Connection closed')) {
+        return `Failed to copy ${itemType}: Connection to server was lost. The connection has been restored automatically.`;
+    }
+    
+    // Timeout errors
+    if (errorMessage.includes('ETIMEDOUT') || 
+        errorMessage.includes('timeout')) {
+        return `Failed to copy ${itemType}: Operation timed out. Please check your network connection.`;
+    }
+    
+    // Cross-device/filesystem errors
+    if (errorMessage.includes('Invalid cross-device link') || 
+        errorMessage.includes('EXDEV')) {
+        return `Cannot copy ${itemType} to "${targetPath}": Cannot copy across different filesystems or devices.`;
+    }
+    
+    // Generic fallback
+    return `Failed to copy ${itemType} from "${currentPath}" to "${targetPath}": ${errorMessage}`;
+}
+
 
 export function deactivate() {
     if (connectionManager) {

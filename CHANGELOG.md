@@ -5,6 +5,33 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.4] - 2025-06-09
+
+### Added
+- **File Copy Operation**: New "Copy" context menu option for files and directories with comprehensive functionality
+  - Pre-populated input dialog with current file path to save user typing
+  - Real-time validation prevents invalid copies (empty paths, circular directory copies, etc.)
+  - Recursive directory copying handles entire folder structures with all contents
+  - Copied files automatically open in new editor tabs alongside originals (not replacing existing tabs)
+  - Progress notifications show copy status and completion
+- **File Download Operation**: New "Download" context menu option that opens files in editor (equivalent to double-clicking)
+- **Universal Overwrite Protection**: Both copy and move operations now include comprehensive file existence checking
+  - File existence detection checks target paths for existing files/directories before operations
+  - User confirmation dialog with "Overwrite" or "Cancel" options when conflicts detected
+  - Cross-protocol support works for both SFTP (stat-based) and FTP (directory listing-based)
+  - Safe operation flow only proceeds with explicit user consent to overwrite existing files
+
+### Enhanced
+- **Editor Tab Behavior**: All file operations now use `preview: false` to ensure files open in permanent tabs instead of preview tabs
+- **User Experience Documentation**: Added comprehensive tips for customizing VSCode file opening behavior
+  - Instructions for disabling preview tabs (`workbench.editor.enablePreview: false`)
+  - Instructions for requiring double-click to open files (`workbench.list.openMode: "doubleClick"`)
+  - Clear explanations of how these settings affect all VSCode operations
+
+### Fixed
+- **Copy Tab Issue**: Copying files now opens copied files in new tabs instead of updating existing tabs
+- **File Operation Safety**: Prevents accidental overwrites with mandatory user confirmation for existing files
+
 ## [2.3.3] - 2025-06-09
 
 ### Added

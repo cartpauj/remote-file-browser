@@ -66,8 +66,10 @@ This extension is designed to work seamlessly across all major operating systems
 - **Push to Remote**: Right-click local file tabs to upload files to selected remote directories
 - **Parent Directory Navigation**: Navigate up directory levels with dedicated toolbar button
 - **Right-click File Operations**: Context menu on remote files and directories with:
+  - **Download**: Download and open files in editor (equivalent to double-clicking)
   - **Rename**: Rename files and directories on the remote server with validation
-  - **Move**: Move files and directories to new paths with pre-populated input, validation, and comprehensive error handling
+  - **Copy**: Copy files and directories to new paths with pre-populated input, overwrite protection, and automatic editor opening for copied files
+  - **Move**: Move files and directories to new paths with pre-populated input, validation, overwrite protection, and comprehensive error handling
   - **Delete**: Delete files and directories from the remote server with confirmation prompts and recursive directory support
 
 ### 5. Security Features
@@ -251,6 +253,21 @@ src/
 - **Temporary File Management**: Seamlessly moves local temp files to match new remote paths
 - **File Watcher Updates**: Maintains file synchronization for moved files that remain open in the editor
 - **Progress Feedback**: Real-time progress notifications during move operations with completion status
+
+### Phase 15: File Copy and Download Operations with Overwrite Protection
+- **Copy Feature Implementation**: Added comprehensive file and directory copying functionality with:
+  - **Context Menu Integration**: "Copy" option added to right-click context menu for both files and directories
+  - **Pre-populated Input Dialog**: Target path pre-filled with source path for user convenience and validation
+  - **Recursive Directory Copying**: Full support for copying entire directory structures with all nested contents
+  - **New Tab Behavior**: Copied files automatically open in new editor tabs alongside originals (not replacing existing tabs)
+  - **Smart Progress Feedback**: Real-time notifications showing copy progress with completion status
+- **Download Feature**: Added "Download" context menu option that reuses existing file opening functionality
+- **Universal Overwrite Protection**: Both copy and move operations now include comprehensive file existence checking:
+  - **File Existence Detection**: Checks target paths for existing files/directories before operations
+  - **User Confirmation Dialog**: Modal prompt asking "Overwrite" or "Cancel" when conflicts detected
+  - **Cross-Protocol Support**: Overwrite detection works for both SFTP (stat-based) and FTP (directory listing-based)
+  - **Safe Operation Flow**: Operations only proceed with explicit user consent to overwrite existing files
+- **Enhanced User Experience**: All file operations now provide consistent behavior and protection against accidental data loss
 
 ## Configuration Schema
 ```json
