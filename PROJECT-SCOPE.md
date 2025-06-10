@@ -648,6 +648,8 @@ The extension uses TypeScript source files that must be compiled to JavaScript b
    # Commit changelog updates along with any other changes
    git add CHANGELOG.md package.json  # (if package.json was also modified)
    git commit -m "Update changelog for version X.X.X - Brief description"
+   
+   # Note: Keep commit messages short and descriptive without mentions of AI assistance
    ```
 
 3. **Test Build**
@@ -657,7 +659,15 @@ The extension uses TypeScript source files that must be compiled to JavaScript b
    npm run package
    ```
 
-4. **Version Bump and Git Release**
+4. **Test Extension Locally**
+   ```bash
+   # Package extension and test locally before publishing
+   vsce package
+   # Install the generated .vsix file in VSCode/Cursor to verify functionality
+   # Test key features: connections, file operations, UI elements
+   ```
+
+5. **Version Bump and Git Release**
    ```bash
    # Choose version type based on changes:
    npm version patch    # For bug fixes: 2.2.0 → 2.2.1
@@ -670,13 +680,13 @@ The extension uses TypeScript source files that must be compiled to JavaScript b
    # - Creates a git tag (e.g., v2.2.1)
    ```
 
-5. **Push to GitHub**
+6. **Push to GitHub**
    ```bash
    # Push both commits and tags to remote repository
    git push origin main --tags
    ```
 
-6. **Publish to Marketplace**
+7. **Publish to Marketplace**
    ```bash
    # Publish to VSCode Marketplace (runs prepublish build automatically)
    vsce publish
@@ -688,7 +698,7 @@ The extension uses TypeScript source files that must be compiled to JavaScript b
    # - Show success message with marketplace URL
    ```
 
-7. **Verify Release**
+8. **Verify Release**
    ```bash
    # Check recent commits and tags
    git log --oneline -5
@@ -701,8 +711,9 @@ The extension uses TypeScript source files that must be compiled to JavaScript b
 #### ✅ Release Completion Checklist
 - [ ] All code changes committed to git
 - [ ] CHANGELOG.md updated with new version entry
-- [ ] Changelog committed along with any other changes
+- [ ] Changelog committed along with any other changes (with short, descriptive commit messages)
 - [ ] `npm run compile` and `npm run package` completed successfully
+- [ ] Extension tested locally via `vsce package` and .vsix installation
 - [ ] `npm version patch/minor/major` executed (auto-updates package.json and creates tag)
 - [ ] `git push origin main --tags` completed (pushes commits and tags to GitHub)
 - [ ] **`vsce publish` executed** (CRITICAL - publishes to marketplace)
@@ -739,6 +750,6 @@ vsce publish major    # Auto-increments version and publishes
 - **New Features**: Minor version (1.1.0)
 - **Breaking Changes**: Major version (2.0.0)
 
-### Current Status
-- **Current Version**: `0.0.1` (initial development)
-- **Recommended First Release**: `1.0.0` (extension is feature-complete)
+### Extension Status
+- **Extension State**: Feature-complete and production-ready
+- **Marketplace**: Published and actively maintained

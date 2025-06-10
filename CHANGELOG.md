@@ -5,6 +5,12 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.6] - 2025-06-09
+
+### Enhanced
+- Improved README with better feature highlights and clearer benefits
+- Enhanced documentation for better user experience
+
 ## [2.3.5] - 2025-06-09
 
 ### Fixed

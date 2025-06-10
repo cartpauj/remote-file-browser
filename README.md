@@ -1,6 +1,30 @@
 # Remote File Browser Extension
 
-A VSCode/Cursor extension that lets you browse and edit remote files via SFTP/FTP without downloading entire directory structures. Files are accessed on-demand and automatically synced back when saved.
+Edit remote files seamlessly in VSCode/Cursor with instant access and automatic sync. No more downloading entire directories or juggling multiple tools.
+
+## ✨ Key Features
+
+🚀 **Instant File Access** - Open remote files directly in your editor without downloading entire directory structures
+
+🔄 **Auto-Sync on Save** - Changes automatically upload to your server when you hit `Ctrl+S` / `Cmd+S`
+
+🔐 **Secure Authentication** - Full support for SSH keys (OpenSSH & PuTTY), password auth, and secure credential storage
+
+📁 **Complete File Management** - Rename, move, copy, and delete files/directories directly on the remote server
+
+⬆️ **One-Click File Upload** - Push local files to remote servers with a simple right-click menu
+
+🌐 **Multiple Protocol Support** - Works with SFTP and FTP connections
+
+⚡ **Quick Connect** - Save multiple server configurations and connect with a single click
+
+🗂️ **Smart File Organization** - Organized temporary file storage prevents conflicts between different servers
+
+🖥️ **Intuitive GUI Interface** - Beautiful, user-friendly connection manager with visual forms instead of complex configuration files
+
+🎯**Context Menu Integration** - All operations available via right-click menus and command palette
+
+⚠️ **Overwrite Protection** - Built-in safeguards prevent accidental file replacement
 
 ## Getting Started
 
