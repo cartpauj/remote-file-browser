@@ -5,6 +5,19 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.8] - 2025-01-06
+
+### Enhanced
+- Enhanced PPK version detection with automatic version parsing from file headers
+- Improved error handling for PPK v3 keys with clear conversion guidance
+- Added proactive warnings when PPK v3 files are detected
+- Updated documentation with comprehensive PPK v2/v3 compatibility information
+- Created dedicated RELEASE.md file for streamlined publishing process
+
+### Fixed
+- Better error messages for unsupported PPK key formats
+- Enhanced connection error handling with specific guidance for key format issues
+
 ## [2.3.7] - 2024-12-10
 
 ### Fixed

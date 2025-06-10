@@ -237,6 +237,16 @@ export class ConnectionManager {
                     
                     // Check if it's a PuTTY .ppk file and use ssh2-sftp-client's built-in PPK support
                     if (keyData.startsWith('PuTTY-User-Key-File-')) {
+                        // Enhanced PPK version detection
+                        const versionMatch = keyData.match(/^PuTTY-User-Key-File-(\d+):/m);
+                        const ppkVersion = versionMatch ? parseInt(versionMatch[1]) : 2;
+                        
+                        // Check for known compatibility issues
+                        if (ppkVersion >= 3) {
+                            // PPK v3 uses Argon2 KDF and SHA-256 MAC which may not be supported by ssh2 library
+                            console.warn(`PPK version ${ppkVersion} detected. This may not be compatible with the current SSH library.`);
+                            console.warn('If connection fails, consider converting to PPK v2 format using PuTTYgen or OpenSSH format.');
+                        }
                         
                         // ssh2-sftp-client (which uses ssh2) can handle PPK files directly
                         // Just pass the raw PPK data and passphrase
@@ -252,7 +262,15 @@ export class ConnectionManager {
                         }
                     }
                 } catch (keyError) {
-                    throw new Error(`Failed to process SSH key from ${this.config.keyPath}: ${keyError}`);
+                    // Enhanced error handling for key processing
+                    const errorMessage = keyError instanceof Error ? keyError.message : String(keyError);
+                    
+                    // Provide specific guidance for PPK format issues
+                    if (errorMessage.includes('key format too new') || errorMessage.includes('Unsupported key format')) {
+                        throw new Error(`PPK key format not supported: ${errorMessage}. Try converting to PPK v2 format using PuTTYgen or OpenSSH format.`);
+                    }
+                    
+                    throw new Error(`Failed to process SSH key from ${this.config.keyPath}: ${errorMessage}`);
                 }
             } else {
                 // Password authentication
@@ -262,7 +280,22 @@ export class ConnectionManager {
             await this.sftpClient.connect(connectOptions);
         } catch (error) {
             console.error('SFTP connection failed:', error);
-            throw new Error(`SFTP connection failed: ${(error as any).message || error}`);
+            
+            // Enhanced error handling for PPK and key-related issues
+            const errorMessage = (error as any).message || String(error);
+            
+            if (errorMessage.includes('key format too new') || 
+                errorMessage.includes('Unsupported key format') ||
+                errorMessage.includes('parse error') ||
+                errorMessage.includes('Invalid key format')) {
+                throw new Error(`PPK key format not supported: ${errorMessage}. The PPK file may be version 3 or newer. Try converting to PPK v2 format using PuTTYgen: Load your key -> Conversions -> Export OpenSSH key, or use 'Key' menu -> 'Parameters for saving key files' to set version 2.`);
+            }
+            
+            if (errorMessage.includes('privateKey') || errorMessage.includes('authentication')) {
+                throw new Error(`SSH key authentication failed: ${errorMessage}. Verify the key file is valid and the passphrase is correct.`);
+            }
+            
+            throw new Error(`SFTP connection failed: ${errorMessage}`);
         }
     }
 
