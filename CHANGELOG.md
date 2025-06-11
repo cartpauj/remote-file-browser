@@ -5,6 +5,18 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2025-01-06
+
+### Added
+- Full PPK v2 and v3 support using ppk-to-openssh package
+- Automatic PPK file detection and conversion to OpenSSH format
+- Enhanced passphrase handling for encrypted PPK files
+- Improved error messages for PPK conversion issues
+
+### Changed
+- Replaced limited ssh2 PPK support with robust ppk-to-openssh conversion
+- Updated ppk-to-openssh dependency to version 1.1.1
+
 ## [2.3.8] - 2025-01-06
 
 ### Enhanced

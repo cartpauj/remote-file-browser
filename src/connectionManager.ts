@@ -1,6 +1,7 @@
 import * as SftpClient from 'ssh2-sftp-client';
 import { Client as FtpClient } from 'basic-ftp';
 import * as fs from 'fs';
+import { parseFromFile, parseFromString } from 'ppk-to-openssh';
 
 export interface ConnectionConfig {
     protocol: 'sftp' | 'ftp';
@@ -235,24 +236,28 @@ export class ConnectionManager {
                 try {
                     const keyData = fs.readFileSync(this.config.keyPath, 'utf8');
                     
-                    // Check if it's a PuTTY .ppk file and use ssh2-sftp-client's built-in PPK support
+                    // Check if it's a PuTTY .ppk file and convert it to OpenSSH format
                     if (keyData.startsWith('PuTTY-User-Key-File-')) {
-                        // Enhanced PPK version detection
-                        const versionMatch = keyData.match(/^PuTTY-User-Key-File-(\d+):/m);
-                        const ppkVersion = versionMatch ? parseInt(versionMatch[1]) : 2;
+                        console.log('PPK file detected, converting to OpenSSH format...');
                         
-                        // Check for known compatibility issues
-                        if (ppkVersion >= 3) {
-                            // PPK v3 uses Argon2 KDF and SHA-256 MAC which may not be supported by ssh2 library
-                            console.warn(`PPK version ${ppkVersion} detected. This may not be compatible with the current SSH library.`);
-                            console.warn('If connection fails, consider converting to PPK v2 format using PuTTYgen or OpenSSH format.');
-                        }
-                        
-                        // ssh2-sftp-client (which uses ssh2) can handle PPK files directly
-                        // Just pass the raw PPK data and passphrase
-                        connectOptions.privateKey = keyData;
-                        if (this.config.passphrase) {
-                            connectOptions.passphrase = this.config.passphrase;
+                        try {
+                            // Use ppk-to-openssh to convert the PPK file (supports both v2 and v3)
+                            const result = await parseFromString(keyData, this.config.passphrase);
+                            
+                            // Use the converted OpenSSH private key
+                            connectOptions.privateKey = result.privateKey;
+                            
+                            console.log('PPK file successfully converted to OpenSSH format');
+                        } catch (ppkError) {
+                            const errorMessage = ppkError instanceof Error ? ppkError.message : String(ppkError);
+                            
+                            if (errorMessage.includes('passphrase') || errorMessage.includes('password') || errorMessage.includes('decrypt')) {
+                                throw new Error(`Failed to decrypt PPK file: Invalid passphrase or corrupted key file. ${errorMessage}`);
+                            } else if (errorMessage.includes('unsupported') || errorMessage.includes('format')) {
+                                throw new Error(`Unsupported PPK format: ${errorMessage}. Please ensure the file is a valid PuTTY private key.`);
+                            }
+                            
+                            throw new Error(`Failed to convert PPK file: ${errorMessage}`);
                         }
                     } else {
                         // For standard OpenSSH/PEM keys, use raw key data
@@ -265,9 +270,14 @@ export class ConnectionManager {
                     // Enhanced error handling for key processing
                     const errorMessage = keyError instanceof Error ? keyError.message : String(keyError);
                     
-                    // Provide specific guidance for PPK format issues
-                    if (errorMessage.includes('key format too new') || errorMessage.includes('Unsupported key format')) {
-                        throw new Error(`PPK key format not supported: ${errorMessage}. Try converting to PPK v2 format using PuTTYgen or OpenSSH format.`);
+                    // Re-throw PPK-specific errors as-is since they're already well formatted
+                    if (errorMessage.includes('PPK') || errorMessage.includes('passphrase') || errorMessage.includes('decrypt')) {
+                        throw keyError;
+                    }
+                    
+                    // Handle other key file errors
+                    if (errorMessage.includes('ENOENT')) {
+                        throw new Error(`SSH key file not found: ${this.config.keyPath}`);
                     }
                     
                     throw new Error(`Failed to process SSH key from ${this.config.keyPath}: ${errorMessage}`);
@@ -281,15 +291,7 @@ export class ConnectionManager {
         } catch (error) {
             console.error('SFTP connection failed:', error);
             
-            // Enhanced error handling for PPK and key-related issues
             const errorMessage = (error as any).message || String(error);
-            
-            if (errorMessage.includes('key format too new') || 
-                errorMessage.includes('Unsupported key format') ||
-                errorMessage.includes('parse error') ||
-                errorMessage.includes('Invalid key format')) {
-                throw new Error(`PPK key format not supported: ${errorMessage}. The PPK file may be version 3 or newer. Try converting to PPK v2 format using PuTTYgen: Load your key -> Conversions -> Export OpenSSH key, or use 'Key' menu -> 'Parameters for saving key files' to set version 2.`);
-            }
             
             if (errorMessage.includes('privateKey') || errorMessage.includes('authentication')) {
                 throw new Error(`SSH key authentication failed: ${errorMessage}. Verify the key file is valid and the passphrase is correct.`);
