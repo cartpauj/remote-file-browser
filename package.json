@@ -358,7 +358,7 @@
 	},
 	"dependencies": {
 		"basic-ftp": "^5.0.5",
-		"ppk-to-openssh": "^1.1.1",
+		"ppk-to-openssh": "^1.2.2",
 		"ssh2-sftp-client": "^12.0.0"
 	},
 	"__metadata": {

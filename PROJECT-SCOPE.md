@@ -17,7 +17,7 @@ This extension is designed to work seamlessly across all major operating systems
   - Password authentication
   - SSH key authentication (with optional passphrase)
     - OpenSSH private key format (traditional and modern)
-    - PuTTY .ppk file format (with automatic conversion)
+    - PuTTY .ppk file format v2 and v3 (with automatic conversion to OpenSSH format)
 - **Secure Credential Storage**: Uses VSCode's SecretStorage API (system keychain)
 - **Connection Persistence**: Saved connections with optional secure password storage
 - **Advanced Connection Timeout & Error Handling**:
@@ -44,7 +44,7 @@ This extension is designed to work seamlessly across all major operating systems
 - **Form-based Configuration**: Add/edit connections without JSON editing
 - **SSH Key File Browser**: Browse and select SSH key files using native file dialog
   - Supports OpenSSH private keys (.key, .pem, .openssh)
-  - Supports PuTTY private keys (.ppk) with automatic format conversion
+  - Supports PuTTY private keys v2 and v3 (.ppk) with automatic format conversion
 - **Advanced Connection Settings**: Optional timeout and retry configuration with:
   - Connection timeout (5-120 seconds)
   - File operation timeout (10-300 seconds)
@@ -96,6 +96,7 @@ src/
 #### Runtime Dependencies
 - `ssh2-sftp-client` (^12.0.0): SFTP client library with enhanced EventEmitter handling and Node.js v20+ compatibility
 - `basic-ftp` (^5.0.5): FTP client library for FTP connections
+- `ppk-to-openssh` (^1.2.2): Pure JavaScript library for converting PuTTY PPK v2 and v3 files to OpenSSH format
 
 #### Development Dependencies
 - `@types/ssh2-sftp-client` (^9.0.4): TypeScript definitions for SFTP client (compatible with v12.0.0)
@@ -279,23 +280,22 @@ src/
 - **FTP Library Update**: Updated basic-ftp to v5.0.5 for enhanced stability
 - **Improved Error Handling**: Better connection reliability and reduced EventEmitter-related edge cases
 
-### Phase 17: PPK Version 3 Compatibility Investigation and Error Handling Enhancement
-- **PPK v3 Compatibility Research**: Conducted comprehensive investigation into PPK v2 vs v3 format differences
-  - **Root Cause Analysis**: Identified that PPK v3 uses Argon2 KDF and SHA-256 MAC incompatible with ssh2 library
-  - **Library Assessment**: Evaluated ssh2, ssh2-sftp-client, and node-ssh libraries for PPK v3 support status
-  - **Format Analysis**: Documented technical differences between PPK v2 (PuTTY 0.52-0.74) and v3 (PuTTY 0.75+) formats
-- **Enhanced PPK Version Detection**: Implemented intelligent PPK version parsing in connection logic
-  - **Version Detection**: Added regex parsing to extract PPK version number from file headers
-  - **Proactive Warnings**: Console warnings when PPK v3 files are detected before connection attempts
-  - **User Guidance**: Helpful conversion suggestions displayed when incompatible formats are encountered
+### Phase 17: PPK Version 3 Compatibility and Universal PPK Support
+- **PPK-to-OpenSSH Library Integration**: Integrated dedicated PPK conversion library for universal PPK support
+  - **Library Assessment**: Evaluated and integrated `ppk-to-openssh` library for comprehensive PPK format support
+  - **Universal Compatibility**: Now supports both PPK v2 (PuTTY 0.52-0.74) and PPK v3 (PuTTY 0.75+) formats
+  - **Format Analysis**: Documented technical differences and conversion process for all PPK versions
+- **Enhanced PPK Processing**: Implemented robust PPK file detection and conversion in connection logic
+  - **Automatic Detection**: Smart detection of PPK files based on header content (`PuTTY-User-Key-File-`)
+  - **Version-Agnostic Processing**: Single conversion pipeline handles both PPK v2 and v3 transparently
+  - **Memory-Safe Conversion**: PPK files converted to OpenSSH format in memory without temporary files
 - **Improved Error Handling**: Enhanced error messaging with specific PPK-related guidance
-  - **Connection-Level Error Handling**: Better error detection for "key format too new" and parsing errors
-  - **User-Friendly Messages**: Clear conversion instructions for PuTTYgen and command-line tools
-  - **Comprehensive Documentation**: Updated README and PROJECT-SCOPE with PPK v3 limitations and workarounds
-- **Documentation Updates**: Complete user-facing and technical documentation of PPK v3 limitations
-  - **README Enhancement**: Added detailed PPK compatibility section with conversion methods
-  - **Troubleshooting Guide**: PPK v3 error messages added to troubleshooting section
-  - **Technical Scope**: Documented SSH key format limitations and security considerations
+  - **Conversion Error Handling**: Specific error messages for passphrase issues, format problems, and corruption
+  - **User-Friendly Messages**: Clear feedback when PPK conversion fails with actionable suggestions
+  - **Comprehensive Logging**: Console logging for debugging PPK conversion issues
+- **Documentation Updates**: Complete user-facing and technical documentation of universal PPK support
+  - **README Enhancement**: Updated PPK compatibility section to reflect v2 and v3 support
+  - **Technical Scope**: Documented PPK conversion architecture and security considerations
 
 ## Configuration Schema
 ```json
@@ -347,9 +347,9 @@ src/
 - Credentials stored using VSCode SecretStorage API
 - SSH keys read from disk only during connection
 - No credential caching in memory beyond connection duration
-- PuTTY .ppk files handled natively by ssh2 library without format conversion
+- PuTTY .ppk files (v2 and v3) converted to OpenSSH format in memory using ppk-to-openssh library
 - SSH key processing happens securely in memory without temporary file creation
-- PPK v3 keys not supported due to Argon2/SHA-256 compatibility limitations with ssh2 library
+- Universal PPK support for both legacy (v2) and modern (v3) PuTTY key formats
 - Temporary files organized in connection-specific directories with sanitized names
 - Manual cleanup of temporary files and watchers prevents sensitive data accumulation
 - Cross-platform filesystem safety with character sanitization for folder names
@@ -399,11 +399,11 @@ The extension uses a multi-layered approach to connection identification, with d
 - Recent connections based on order in configuration (not actual usage tracking)
 - Temp file management uses terminal interface for all platforms
 
-### SSH Key Format Limitations
-- **PPK Version 3 Not Supported**: PuTTY PPK version 3 keys (generated by PuTTY 0.75+) are not compatible with the underlying ssh2 library
-- **PPK v3 Technical Issues**: PPK v3 uses Argon2 KDF and SHA-256 MAC which the current ssh2 library cannot parse
-- **Supported Formats**: OpenSSH private keys (.pem, .key) and PuTTY PPK version 2 keys (.ppk from PuTTY 0.52-0.74)
-- **Workaround Required**: Users with PPK v3 keys must convert to PPK v2 or OpenSSH format using PuTTYgen
+### SSH Key Format Support
+- **Universal PPK Support**: Both PuTTY PPK version 2 (PuTTY 0.52-0.74) and PPK version 3 (PuTTY 0.75+) are fully supported
+- **Automatic Conversion**: PPK files are automatically converted to OpenSSH format in memory using the ppk-to-openssh library
+- **Supported Formats**: OpenSSH private keys (.pem, .key) and PuTTY PPK keys (.ppk) in all versions
+- **No Manual Conversion Required**: Users can use PPK files directly without any preprocessing
 
 ### Multi-Window Compatibility Issues
 - **Shared Temporary Directory Conflicts**: Multiple VSCode/Cursor windows connecting to the same server use identical temp file paths (`/tmp/remote-file-browser/user-at-server-22/`), causing file overwrite conflicts when opening the same remote files
