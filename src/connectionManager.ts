@@ -1,18 +1,20 @@
 import * as SftpClient from 'ssh2-sftp-client';
 import { Client as FtpClient } from 'basic-ftp';
 import * as fs from 'fs';
+import { Readable, Writable, PassThrough } from 'stream';
 import { parseFromFile, parseFromString } from 'ppk-to-openssh';
 
 export interface ConnectionConfig {
     protocol: 'sftp' | 'ftp';
     host: string;
     port: number;
-    username: string;
+    username?: string;
     password?: string;
     remotePath: string;
     authType?: 'password' | 'key';
     keyPath?: string;
     passphrase?: string;
+    anonymous?: boolean;
     // Connection timeout and retry settings
     connectionTimeout?: number;     // Connection timeout in milliseconds (default: 20000 for SFTP, 30000 for FTP)
     operationTimeout?: number;      // File operation timeout in milliseconds (default: 60000)
@@ -46,6 +48,7 @@ export class ConnectionManager {
     private connected = false;
     private keepAliveInterval?: NodeJS.Timeout;
     private connectionRetries = 0;
+    private ftpConnectionLock = false;
     
     // Health monitoring properties
     private lastSuccessfulOperation?: Date;
@@ -122,6 +125,7 @@ export class ConnectionManager {
         this.connected = false;
         this.config = undefined;
         this.connectionRetries = 0;
+        this.ftpConnectionLock = false;
         
         // Reset health monitoring
         this.connectionStartTime = undefined;
@@ -294,10 +298,12 @@ export class ConnectionManager {
             
             const errorMessage = (error as any).message || String(error);
             
-            if (errorMessage.includes('privateKey') || errorMessage.includes('authentication')) {
+            // Only show SSH key specific error for key authentication
+            if (this.config.authType === 'key' && (errorMessage.includes('privateKey') || errorMessage.includes('authentication'))) {
                 throw new Error(`SSH key authentication failed: ${errorMessage}. Verify the key file is valid and the passphrase is correct.`);
             }
             
+            // For password authentication or other errors, show generic SFTP error
             throw new Error(`SFTP connection failed: ${errorMessage}`);
         }
     }
@@ -309,11 +315,25 @@ export class ConnectionManager {
         const connectionTimeout = this.config.connectionTimeout || 30000;
         this.ftpClient = new FtpClient(connectionTimeout);
         try {
+            // Handle anonymous FTP connections
+            let username = this.config.username;
+            let password = this.config.password;
+
+            if (this.config.anonymous) {
+                // For anonymous FTP, try different common patterns
+                if (!username || username.trim() === '') {
+                    username = 'anonymous';
+                }
+                if (!password || password.trim() === '') {
+                    password = 'anonymous@example.com';
+                }
+            }
+
             await this.ftpClient.access({
                 host: this.config.host,
                 port: this.config.port,
-                user: this.config.username,
-                password: this.config.password
+                user: username,
+                password: password
             });
         } catch (error) {
             console.error('FTP connection failed:', error);
@@ -374,16 +394,29 @@ export class ConnectionManager {
         // Check if connection is still alive and reconnect if needed
         await this.ensureFtpConnection();
 
-        const chunks: Buffer[] = [];
-        await this.withOperationTimeout(
-            this.ftpClient.downloadTo({
-                write: (chunk: Buffer) => chunks.push(chunk),
-                close: () => {}
-            } as any, path),
-            'read file'
-        );
-        
-        return Buffer.concat(chunks).toString();
+        return new Promise<string>((resolve, reject) => {
+            const chunks: Buffer[] = [];
+            
+            // Use PassThrough stream for better compatibility
+            const stream = new PassThrough();
+            
+            stream.on('data', (chunk: Buffer) => {
+                chunks.push(chunk);
+            });
+
+            stream.on('end', () => {
+                resolve(Buffer.concat(chunks).toString());
+            });
+
+            stream.on('error', (error) => {
+                reject(error);
+            });
+
+            this.withOperationTimeout(
+                this.ftpClient!.downloadTo(stream, path),
+                'read file'
+            ).catch(reject);
+        });
     }
 
     private async writeFileSftp(path: string, content: string): Promise<void> {
@@ -401,11 +434,14 @@ export class ConnectionManager {
         // Check if connection is still alive and reconnect if needed
         await this.ensureFtpConnection();
 
+        // Create a readable stream from the content
+        const buffer = Buffer.from(content);
+        const stream = new Readable();
+        stream.push(buffer);
+        stream.push(null); // End of stream
+
         await this.withOperationTimeout(
-            this.ftpClient.uploadFrom({
-                read: () => Buffer.from(content),
-                close: () => {}
-            } as any, path),
+            this.ftpClient.uploadFrom(stream, path),
             'write file'
         );
     }
@@ -897,8 +933,29 @@ export class ConnectionManager {
         
         // Check if FTP connection is still alive by testing if it's closed
         if (this.ftpClient.closed) {
-            console.log('FTP connection was closed, reconnecting...');
-            await this.connectFtp();
+            // Prevent concurrent reconnection attempts
+            if (this.ftpConnectionLock) {
+                // Wait for ongoing reconnection to complete
+                while (this.ftpConnectionLock) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                return;
+            }
+            
+            this.ftpConnectionLock = true;
+            try {
+                console.log('FTP connection was closed, reconnecting...');
+                // Close the old client first
+                if (this.ftpClient) {
+                    this.ftpClient.close();
+                }
+                await this.connectFtp();
+            } catch (error) {
+                console.error('FTP reconnection failed:', error);
+                throw new Error(`FTP reconnection failed: ${(error as any).message || error}`);
+            } finally {
+                this.ftpConnectionLock = false;
+            }
         }
     }
 }

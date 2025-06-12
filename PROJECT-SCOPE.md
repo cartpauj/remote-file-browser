@@ -314,6 +314,53 @@ src/
   - **FTP Flexibility**: Implemented user-configurable timeouts while maintaining session persistence
   - **Keep-Alive Integration**: Enhanced dual keep-alive system (application-level and protocol-level) for both protocols
 
+### Phase 19: Anonymous FTP Support and Advanced Authentication UI
+- **Anonymous FTP Implementation**: Comprehensive support for anonymous FTP connections
+  - **Anonymous Connection Checkbox**: Added dedicated checkbox in connection form for FTP-only anonymous access
+  - **Flexible Credential Handling**: Supports both empty credentials and custom anonymous username/password combinations
+  - **Protocol-Aware UI**: Anonymous option only visible for FTP protocol, automatically hidden for SFTP
+  - **Automatic Credential Defaults**: Uses standard anonymous credentials (`anonymous`/`anonymous@example.com`) when fields are empty
+  - **No Credential Storage**: Anonymous connections bypass password storage prompts for cleaner UX
+- **Protocol-Aware Authentication System**: Dynamic authentication options based on selected protocol
+  - **Dynamic Authentication Dropdown**: SFTP shows both "Password" and "SSH Key" options, FTP shows only "Password"
+  - **Real-time Form Updates**: Authentication options update automatically when protocol changes
+  - **SSH Key Field Management**: SSH key and passphrase fields automatically hidden when switching to FTP
+  - **Seamless Protocol Switching**: Form maintains appropriate authentication state during protocol changes
+- **Enhanced Password Field Implementation**: Optional password entry with intelligent management
+  - **Optional Password Storage**: Password field allows empty input with prompt-on-connect fallback
+  - **Smart Field Visibility**: Password field hidden when SFTP uses SSH Key authentication
+  - **Proper Field Ordering**: Password field positioned below authentication type for logical form flow
+  - **Secure Deletion Logic**: Password deletion only occurs when explicitly cleared after previous storage
+  - **Contextual Placeholders**: Dynamic placeholder text guides users on password field behavior
+- **Advanced Authentication Error Recovery**: Intelligent error handling with retry mechanisms
+  - **Authentication Failure Detection**: Smart recognition of authentication errors vs. network issues
+  - **Password Retry Dialog**: Modal dialog offering "Retry with different password" or "Cancel" options
+  - **Credential Update Workflow**: Seamless password correction with optional secure storage
+  - **Graceful Error Handling**: Fallback to original error message if retry is cancelled
+  - **No UI Disruption**: Error recovery maintains connection manager state and form data
+- **UI/UX Consistency Improvements**: Enhanced form behavior and user experience
+  - **Advanced Settings Collapse**: Advanced connection settings always start collapsed for cleaner initial form
+  - **Form Reset Consistency**: Complete form state reset including advanced settings and authentication fields
+  - **Webview Modal Integration**: Replaced browser-incompatible `confirm()` with VS Code's native modal dialogs
+  - **Global Function Scope**: Fixed JavaScript function accessibility for onclick handlers in webview context
+
+### Phase 20: Critical Bug Fixes and Stream Reliability
+- **SFTP Authentication Error Message Fix**: Corrected misleading error messages for password authentication
+  - **Root Cause**: Error handling logic incorrectly assumed all authentication failures were SSH key errors
+  - **Authentication Type Awareness**: Modified error handling to check `authType` before showing SSH key-specific messages
+  - **Accurate Error Reporting**: Password authentication failures now show generic SFTP connection errors with actual failure reasons
+  - **User Experience**: Eliminated confusion where users saw "SSH key authentication failed" when using password auth
+- **FTP File Reading Stream Compatibility**: Resolved EventEmitter issues preventing file opening on FTP servers
+  - **Stream Implementation Overhaul**: Replaced custom Writable stream with PassThrough stream for better compatibility
+  - **EventEmitter Fix**: Eliminated ".once is not a function" errors that blocked FTP file operations
+  - **Promise-based Error Handling**: Improved error handling with proper stream event listeners (`data`, `end`, `error`)
+  - **Enhanced Reliability**: FTP file reading now works consistently across different FTP server implementations
+  - **Timeout Protection**: Maintained operation timeout protection while fixing stream compatibility
+- **Production Build Optimization**: Created optimized VSIX package with all fixes
+  - **Bundle Size**: Maintained 339KB package size with webpack production bundling
+  - **Hidden Source Maps**: Enabled debugging capabilities without exposing source code
+  - **Native Module Handling**: Proper packaging of SSH2 binary dependencies for cross-platform compatibility
+
 ## Configuration Schema
 ```json
 {
@@ -327,6 +374,7 @@ src/
       "remotePath": "/",
       "authType": "password|key",
       "keyPath": "/path/to/ssh/key",
+      "anonymous": false,
       "connectionTimeout": 20000,
       "operationTimeout": 60000,
       "maxRetries": 3,
@@ -341,6 +389,13 @@ src/
 ### Configuration Options
 **All advanced parameters are optional with sensible defaults when left blank:**
 
+#### Core Connection Settings
+- **anonymous**: Enable anonymous FTP connection (FTP protocol only)
+  - *Default*: false (disabled)
+  - *Options*: true/false
+  - *Effect*: When true, allows empty username/password or uses default anonymous credentials
+
+#### Advanced Connection Settings  
 - **connectionTimeout**: Connection timeout in milliseconds
   - *Default*: 30,000ms (30s) for both SFTP and FTP
   - *Range*: 5,000-120,000ms (5-120 seconds)
@@ -593,5 +648,23 @@ The extension uses **webpack bundling** for optimal performance and minimal pack
    - Select the generated `.vsix` file
 
 This project provides a complete, secure, and user-friendly solution for remote file browsing without the overhead of traditional sync-based approaches. The extension offers seamless connectivity with intelligent temp file management, cross-platform compatibility, and an intuitive interface optimized for daily development workflows.
+
+## Current Release Status
+
+### Version 2.5.2 (Latest)
+**Release Date**: December 2024  
+**Package Size**: 339KB (optimized)  
+**Key Features**: Anonymous FTP support, protocol-aware authentication, critical bug fixes
+
+**Major Improvements in 2.5.x Series**:
+- ✅ **Anonymous FTP Support**: Full implementation with flexible credential handling
+- ✅ **Protocol-Aware Authentication**: Dynamic UI showing appropriate auth options per protocol  
+- ✅ **Enhanced Password Management**: Optional password storage with intelligent field management
+- ✅ **Authentication Error Recovery**: Smart retry mechanisms with user-friendly dialogs
+- ✅ **Critical Bug Fixes**: SFTP authentication error messages and FTP file reading reliability
+- ✅ **Stream Compatibility**: Resolved EventEmitter issues with modern Node.js versions
+- ✅ **Advanced Connection Settings**: Configurable timeouts, retries, and keep-alive mechanisms
+
+**Stability**: Production-ready with comprehensive error handling and connection reliability improvements.
 
 *For release and publishing information, see RELEASE.md*

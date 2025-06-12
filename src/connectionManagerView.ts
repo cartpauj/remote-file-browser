@@ -51,6 +51,14 @@ export class ConnectionManagerView {
 
         switch (message.type) {
             case 'addConnection':
+                // Store password securely if provided
+                if (message.data.password && message.data.password.trim() !== '') {
+                    const connectionId = CredentialManager.generateConnectionId(message.data);
+                    await this.credentialManager.storePassword(connectionId, message.data.password);
+                    // Remove password from stored connection data (it's in secure storage now)
+                    delete message.data.password;
+                }
+                
                 connections.push(message.data);
                 await config.update('connections', connections, vscode.ConfigurationTarget.Global);
                 vscode.window.showInformationMessage('Connection added successfully');
@@ -58,6 +66,17 @@ export class ConnectionManagerView {
                 break;
 
             case 'updateConnection':
+                // Store password securely if provided
+                if (message.data.password && message.data.password.trim() !== '') {
+                    const connectionId = CredentialManager.generateConnectionId(message.data);
+                    await this.credentialManager.storePassword(connectionId, message.data.password);
+                    // Remove password from stored connection data (it's in secure storage now)
+                    delete message.data.password;
+                } else if (message.data.password !== undefined) {
+                    // Password field exists but is empty - don't delete existing stored password
+                    delete message.data.password;
+                }
+                
                 connections[message.index] = message.data;
                 await config.update('connections', connections, vscode.ConfigurationTarget.Global);
                 vscode.window.showInformationMessage('Connection updated successfully');
@@ -217,7 +236,8 @@ export class ConnectionManagerView {
                 // Password authentication - check for stored password first
                 let password = await this.credentialManager.getPassword(connectionId);
                 
-                if (!password) {
+                // Skip password prompting for anonymous FTP
+                if (!password && !connection.anonymous) {
                     password = await vscode.window.showInputBox({
                         prompt: `Enter password for ${connection.username}@${connection.host}`,
                         password: true
@@ -225,7 +245,7 @@ export class ConnectionManagerView {
 
                     if (!password) return;
                     
-                    // Ask to save password
+                    // Ask to save password (only for non-anonymous connections)
                     const savePassword = await vscode.window.showQuickPick(
                         ['Yes', 'No'], 
                         { placeHolder: 'Save password securely for future connections?' }
@@ -239,7 +259,8 @@ export class ConnectionManagerView {
                     }
                 }
                 
-                connectionConfig.password = password;
+                // For anonymous FTP, use the stored password if any, or let connection manager handle defaults
+                connectionConfig.password = password || connection.password;
             }
 
             // Signal successful connection attempt and close panel
@@ -252,7 +273,9 @@ export class ConnectionManagerView {
             this.panel?.dispose();
             
         } catch (error) {
-            vscode.window.showErrorMessage(`Failed to connect: ${error}`);
+            // Don't show error here - let the main extension handle it
+            // since the panel closes and the error won't be visible
+            console.error('Connection manager error:', error);
         }
     }
 
@@ -546,6 +569,14 @@ export class ConnectionManagerView {
                     </select>
                 </div>
                 
+                <div class="form-group" id="anonymousGroup" style="display: none;">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="anonymous" name="anonymous">
+                        <label for="anonymous">Anonymous FTP Connection</label>
+                    </div>
+                    <small style="color: var(--vscode-descriptionForeground);">Connect without credentials (username/password optional)</small>
+                </div>
+                
                 <div class="form-group">
                     <label for="host">Host:</label>
                     <input type="text" id="host" name="host" placeholder="example.com or 192.168.1.100" required>
@@ -556,7 +587,7 @@ export class ConnectionManagerView {
                     <input type="number" id="port" name="port" value="22" required>
                 </div>
                 
-                <div class="form-group">
+                <div class="form-group" id="usernameGroup">
                     <label for="username">Username:</label>
                     <input type="text" id="username" name="username" required>
                 </div>
@@ -567,6 +598,12 @@ export class ConnectionManagerView {
                         <option value="password">Password</option>
                         <option value="key">SSH Key</option>
                     </select>
+                </div>
+                
+                <div class="form-group" id="passwordGroup">
+                    <label for="password">Password:</label>
+                    <input type="password" id="password" name="password" placeholder="Leave empty to prompt during connection">
+                    <small style="color: var(--vscode-descriptionForeground);">Optional: Enter to store securely, or leave empty to prompt when connecting</small>
                 </div>
                 
                 <div class="form-group" id="keyPathGroup" style="display: none;">
@@ -713,10 +750,12 @@ export class ConnectionManagerView {
                 host: formData.get('host'),
                 port: parseInt(formData.get('port')),
                 username: formData.get('username'),
+                password: formData.get('password'),
                 remotePath: formData.get('remotePath') || '/',
                 authType: formData.get('authType'),
                 keyPath: formData.get('keyPath'),
                 passphrase: formData.get('passphrase'),
+                anonymous: formData.get('anonymous') === 'on',
                 // Advanced connection settings
                 connectionTimeout: formData.get('connectionTimeout') ? parseInt(formData.get('connectionTimeout')) : undefined,
                 operationTimeout: formData.get('operationTimeout') ? parseInt(formData.get('operationTimeout')) : undefined,
@@ -732,7 +771,6 @@ export class ConnectionManagerView {
                     index: editingIndex,
                     data: connection
                 });
-                resetForm();
             } else {
                 vscode.postMessage({
                     type: 'addConnection',
@@ -740,9 +778,8 @@ export class ConnectionManagerView {
                 });
             }
 
-            e.target.reset();
-            document.getElementById('port').value = '22';
-            document.getElementById('remotePath').value = '/';
+            // Always reset form after successful submission
+            resetForm();
         });
 
         // Cancel editing
@@ -752,6 +789,10 @@ export class ConnectionManagerView {
         document.getElementById('protocol').addEventListener('change', (e) => {
             const port = document.getElementById('port');
             const connectionTimeout = document.getElementById('connectionTimeout');
+            const anonymousGroup = document.getElementById('anonymousGroup');
+            const anonymousCheckbox = document.getElementById('anonymous');
+            
+            const authTypeSelect = document.getElementById('authType');
             
             if (e.target.value === 'sftp') {
                 port.value = '22';
@@ -759,12 +800,31 @@ export class ConnectionManagerView {
                 if (connectionTimeout.value === '30000' || connectionTimeout.value === '') {
                     connectionTimeout.value = '20000';
                 }
+                // Hide anonymous option for SFTP
+                anonymousGroup.style.display = 'none';
+                anonymousCheckbox.checked = false;
+                
+                // Show SSH Key option for SFTP
+                authTypeSelect.innerHTML = '<option value="password">Password</option><option value="key">SSH Key</option>';
+                updateCredentialRequirements();
             } else if (e.target.value === 'ftp') {
                 port.value = '21';
                 // Only update timeout if it's still at the default value
                 if (connectionTimeout.value === '20000' || connectionTimeout.value === '') {
                     connectionTimeout.value = '30000';
                 }
+                // Show anonymous option for FTP
+                anonymousGroup.style.display = 'block';
+                
+                // Hide SSH Key option for FTP (only password supported)
+                authTypeSelect.innerHTML = '<option value="password">Password</option>';
+                authTypeSelect.value = 'password';
+                
+                // Hide SSH key fields when switching to FTP
+                document.getElementById('keyPathGroup').style.display = 'none';
+                document.getElementById('passphraseGroup').style.display = 'none';
+                
+                updateCredentialRequirements();
             }
         });
 
@@ -772,13 +832,18 @@ export class ConnectionManagerView {
         document.getElementById('authType').addEventListener('change', (e) => {
             const keyPathGroup = document.getElementById('keyPathGroup');
             const passphraseGroup = document.getElementById('passphraseGroup');
+            const passwordGroup = document.getElementById('passwordGroup');
             
             if (e.target.value === 'key') {
                 keyPathGroup.style.display = 'block';
                 passphraseGroup.style.display = 'block';
+                // Hide password field for SSH key authentication
+                passwordGroup.style.display = 'none';
             } else {
                 keyPathGroup.style.display = 'none';
                 passphraseGroup.style.display = 'none';
+                // Show password field for password authentication
+                passwordGroup.style.display = 'block';
             }
         });
 
@@ -792,6 +857,26 @@ export class ConnectionManagerView {
                 keepAliveGroup.style.display = 'none';
             }
         });
+
+        // Anonymous FTP checkbox change handler
+        document.getElementById('anonymous').addEventListener('change', updateCredentialRequirements);
+
+        // Function to update credential requirements based on anonymous mode
+        function updateCredentialRequirements() {
+            const anonymousCheckbox = document.getElementById('anonymous');
+            const usernameField = document.getElementById('username');
+            const protocolField = document.getElementById('protocol');
+            
+            if (protocolField.value === 'ftp' && anonymousCheckbox.checked) {
+                // Anonymous FTP: make username optional
+                usernameField.removeAttribute('required');
+                usernameField.placeholder = 'Leave empty for anonymous or enter username';
+            } else {
+                // Regular connection: username required
+                usernameField.setAttribute('required', 'required');
+                usernameField.placeholder = '';
+            }
+        }
 
         // Advanced settings toggle handler
         document.getElementById('advancedToggle').addEventListener('click', () => {
@@ -872,8 +957,12 @@ export class ConnectionManagerView {
             document.getElementById('host').value = conn.host || '';
             document.getElementById('port').value = conn.port || 22;
             document.getElementById('username').value = conn.username || '';
+            // Don't display stored password for security - leave empty
+            document.getElementById('password').value = '';
+            document.getElementById('password').placeholder = 'Enter new password or leave empty to keep existing';
             document.getElementById('remotePath').value = conn.remotePath || '/';
             document.getElementById('authType').value = conn.authType || 'password';
+            document.getElementById('anonymous').checked = conn.anonymous || false;
             document.getElementById('keyPath').value = conn.keyPath || '';
             document.getElementById('passphrase').value = conn.passphrase || '';
 
@@ -886,6 +975,10 @@ export class ConnectionManagerView {
             document.getElementById('enableKeepAlive').checked = conn.enableKeepAlive !== false; // Default to true
             document.getElementById('keepAliveInterval').value = conn.keepAliveInterval || '30000';
 
+            // Trigger protocol change to show/hide anonymous option
+            const protocolEvent = new Event('change');
+            document.getElementById('protocol').dispatchEvent(protocolEvent);
+
             // Trigger auth type change to show/hide fields
             const authTypeEvent = new Event('change');
             document.getElementById('authType').dispatchEvent(authTypeEvent);
@@ -894,18 +987,15 @@ export class ConnectionManagerView {
             const keepAliveEvent = new Event('change');
             document.getElementById('enableKeepAlive').dispatchEvent(keepAliveEvent);
 
-            // Show advanced settings if any non-default values are configured
-            const hasAdvancedSettings = conn.connectionTimeout || conn.operationTimeout || 
-                                       conn.maxRetries || conn.retryDelay || 
-                                       conn.keepAliveInterval || conn.enableKeepAlive === false;
-            
-            if (hasAdvancedSettings) {
-                const advancedSettings = document.getElementById('advancedSettings');
-                const toggleIcon = document.querySelector('.toggle-icon');
-                advancedSettings.style.display = 'block';
-                toggleIcon.textContent = '▼';
-                toggleIcon.classList.add('expanded');
-            }
+            // Update credential requirements after setting anonymous checkbox
+            updateCredentialRequirements();
+
+            // Always start with advanced settings collapsed
+            const advancedSettings = document.getElementById('advancedSettings');
+            const toggleIcon = document.querySelector('.toggle-icon');
+            advancedSettings.style.display = 'none';
+            toggleIcon.textContent = '▶';
+            toggleIcon.classList.remove('expanded');
 
             document.getElementById('connectionForm').scrollIntoView({ behavior: 'smooth' });
         }
@@ -918,7 +1008,14 @@ export class ConnectionManagerView {
             document.getElementById('connectionForm').reset();
             document.getElementById('port').value = '22';
             document.getElementById('remotePath').value = '/';
+            document.getElementById('anonymous').checked = false;
+            
+            // Reset authentication dropdown to show both options (SFTP default)
+            document.getElementById('authType').innerHTML = '<option value="password">Password</option><option value="key">SSH Key</option>';
             document.getElementById('authType').value = 'password';
+            
+            // Reset password field placeholder
+            document.getElementById('password').placeholder = 'Leave empty to prompt during connection';
             
             // Reset advanced connection settings to defaults
             document.getElementById('connectionTimeout').value = '20000'; // Default for SFTP
@@ -928,9 +1025,10 @@ export class ConnectionManagerView {
             document.getElementById('enableKeepAlive').checked = true;
             document.getElementById('keepAliveInterval').value = '30000';
             
-            // Hide SSH key fields
+            // Hide SSH key fields, show password field (password auth is default)
             document.getElementById('keyPathGroup').style.display = 'none';
             document.getElementById('passphraseGroup').style.display = 'none';
+            document.getElementById('passwordGroup').style.display = 'block';
             
             // Show keep-alive interval field (since keep-alive is checked by default)
             document.getElementById('keepAliveGroup').style.display = 'block';
@@ -941,6 +1039,10 @@ export class ConnectionManagerView {
             advancedSettings.style.display = 'none';
             toggleIcon.textContent = '▶';
             toggleIcon.classList.remove('expanded');
+
+            // Trigger protocol change to reset anonymous option visibility
+            const protocolEvent = new Event('change');
+            document.getElementById('protocol').dispatchEvent(protocolEvent);
         }
     </script>
 </body>

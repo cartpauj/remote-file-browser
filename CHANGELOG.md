@@ -5,6 +5,26 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.3] - 2024-12-12
+
+### Fixed
+- **SFTP Authentication Error Messages**: Fixed misleading "SSH key authentication failed" errors when using password authentication
+- **FTP File Reading**: Resolved EventEmitter compatibility issues that prevented opening files on FTP servers  
+- **Authentication Dialog UI**: Fixed duplicate "Cancel" buttons in authentication retry dialogs
+- **Handshake Timeout Detection**: Improved recognition of authentication timeouts as authentication failures
+
+### Added
+- **Anonymous FTP Support**: Full support for anonymous FTP connections with flexible credential handling
+- **Protocol-Aware Authentication UI**: Dynamic form showing appropriate authentication options (SFTP: Password/SSH Key, FTP: Password only)
+- **Optional Password Storage**: Password field with intelligent management - enter to store securely or leave empty for connection-time prompts
+- **Authentication Error Recovery**: Smart retry mechanisms with "Retry with different password" option for failed authentications
+
+### Enhanced
+- **Advanced Settings UI**: Advanced connection settings now always start collapsed for cleaner form appearance
+- **Form Field Ordering**: Improved logical flow with password field positioned below authentication type
+- **Webview Compatibility**: Replaced browser-incompatible confirm() dialogs with VS Code native modal dialogs
+- **Stream Reliability**: Enhanced FTP file operations using PassThrough streams for better compatibility across server implementations
+
 ## [2.5.2] - 2025-12-06
 
 ### Fixed

@@ -222,25 +222,27 @@ async function connectDirect(connectionConfig: any) {
         
         vscode.window.showInformationMessage(`Connected to ${connectionConfig.host} via ${(connectionConfig.protocol || 'SFTP').toUpperCase()}`);
     } catch (error) {
-        vscode.window.showErrorMessage(`Failed to connect: ${error}`);
+        // Simple error handling - let calling function handle retries
+        throw error;
     }
 }
 
 async function connectToSavedConnection(connectionIndex: number) {
-    try {
-        const config = vscode.workspace.getConfiguration('remoteFileBrowser');
-        const connections = config.get<any[]>('connections', []);
-        
-        if (connectionIndex < 0 || connectionIndex >= connections.length) {
-            vscode.window.showErrorMessage('Invalid connection selected');
-            return;
-        }
+    const config = vscode.workspace.getConfiguration('remoteFileBrowser');
+    const connections = config.get<any[]>('connections', []);
+    
+    if (connectionIndex < 0 || connectionIndex >= connections.length) {
+        vscode.window.showErrorMessage('Invalid connection selected');
+        return;
+    }
 
-        const connection = connections[connectionIndex];
-        
-        // Handle authentication for the connection
-        let connectionConfig = { ...connection };
-        const connectionId = CredentialManager.generateConnectionId(connection);
+    const connection = connections[connectionIndex];
+    
+    // Handle authentication for the connection
+    let connectionConfig = { ...connection };
+    const connectionId = CredentialManager.generateConnectionId(connection);
+
+    try {
 
         if (connection.authType === 'key') {
             // SSH key authentication - check for stored passphrase first
@@ -309,6 +311,55 @@ async function connectToSavedConnection(connectionIndex: number) {
         
         vscode.window.showInformationMessage(`Connected to ${connection.host} via ${(connection.protocol || 'SFTP').toUpperCase()}`);
     } catch (error) {
+        // Check if this is likely an authentication error
+        const errorMessage = error?.toString() || '';
+        const isAuthError = errorMessage.toLowerCase().includes('authentication') || 
+                          errorMessage.toLowerCase().includes('login') ||
+                          errorMessage.toLowerCase().includes('password') ||
+                          errorMessage.toLowerCase().includes('credential') ||
+                          errorMessage.toLowerCase().includes('unauthorized') ||
+                          errorMessage.toLowerCase().includes('access denied') ||
+                          errorMessage.toLowerCase().includes('all configured authentication methods failed') ||
+                          // Handshake timeouts are often authentication issues with wrong credentials
+                          (errorMessage.toLowerCase().includes('handshake') && errorMessage.toLowerCase().includes('timed out'));
+        
+        if (isAuthError && connectionConfig.authType === 'password') {
+            // Offer to retry with different password
+            const choice = await vscode.window.showErrorMessage(
+                `Authentication failed: ${errorMessage}`,
+                { modal: true },
+                'Retry with different password'
+            );
+            
+            if (choice === 'Retry with different password') {
+                // Prompt for new password
+                const newPassword = await vscode.window.showInputBox({
+                    prompt: `Enter password for ${connectionConfig.username}@${connectionConfig.host}`,
+                    password: true,
+                    placeHolder: 'Enter a different password'
+                });
+                
+                if (newPassword) {
+                    // Ask if they want to save the new password
+                    const saveChoice = await vscode.window.showQuickPick(
+                        ['Yes', 'No'], 
+                        { placeHolder: 'Save this password securely for future connections?' }
+                    );
+                    
+                    if (saveChoice === 'Yes') {
+                        const connectionId = CredentialManager.generateConnectionId(connectionConfig);
+                        await credentialManager.storePassword(connectionId, newPassword);
+                    }
+                    
+                    // Retry connection with new password
+                    connectionConfig.password = newPassword;
+                    return await connectDirect(connectionConfig);
+                }
+            }
+            // User chose cancel or didn't provide password - don't show additional error
+            return;
+        }
+        
         vscode.window.showErrorMessage(`Failed to connect: ${error}`);
     }
 }
@@ -723,11 +774,11 @@ async function pushToRemote(resourceUri: vscode.Uri) {
             return;
         }
 
-        // Check if a directory is selected in the remote file tree
-        if (!currentSelectedDirectory) {
-            vscode.window.showErrorMessage('Please select a directory in the remote file tree first.');
-            return;
-        }
+        // Use selected directory or fall back to root directory if none selected
+        const targetDirectory = currentSelectedDirectory || {
+            path: connectionManager.getRemotePath(),
+            isDirectory: true
+        };
 
         // Get the local file path
         const localFilePath = resourceUri.fsPath;
@@ -743,9 +794,9 @@ async function pushToRemote(resourceUri: vscode.Uri) {
         const fileContent = fs.readFileSync(localFilePath, 'utf8');
 
         // Construct the remote file path
-        const remotePath = currentSelectedDirectory.path === '/' 
+        const remotePath = targetDirectory.path === '/' 
             ? `/${fileName}` 
-            : `${currentSelectedDirectory.path}/${fileName}`;
+            : `${targetDirectory.path}/${fileName}`;
 
         // Show progress indicator
         await vscode.window.withProgress({
@@ -763,7 +814,7 @@ async function pushToRemote(resourceUri: vscode.Uri) {
                 
                 // Show success message
                 vscode.window.showInformationMessage(
-                    `Successfully pushed ${fileName} to ${currentSelectedDirectory!.path}`
+                    `Successfully pushed ${fileName} to ${targetDirectory.path}`
                 );
 
                 // Refresh the remote file tree to show the new file

@@ -14,7 +14,7 @@ Edit remote files seamlessly in VSCode/Cursor with instant access and automatic 
 
 ⬆️ **One-Click File Upload** - Push local files to remote servers with a simple right-click menu
 
-🌐 **Multiple Protocol Support** - Works with SFTP and FTP connections
+🌐 **Multiple Protocol Support** - Works with SFTP and FTP connections, including anonymous FTP
 
 ⚡ **Quick Connect** - Save multiple server configurations and connect with a single click
 
@@ -40,15 +40,17 @@ Edit remote files seamlessly in VSCode/Cursor with instant access and automatic 
      - **Protocol**: SFTP (recommended) or FTP
      - **Host**: Your server's IP address or domain name
      - **Port**: Usually 22 for SFTP, 21 for FTP
-     - **Username**: Your server username
-     - **Authentication**: Choose Password or SSH Key (supports OpenSSH and PuTTY .ppk v2/v3 formats)
+     - **Username**: Your server username (optional for anonymous FTP)
+     - **Authentication**: Choose Password or SSH Key (SFTP only - supports OpenSSH and PuTTY .ppk v2/v3 formats)
+     - **Password**: Optional - enter to store securely, or leave empty to prompt during connection
+     - **Anonymous FTP**: Check this box for anonymous FTP access (FTP only)
      - **Remote Path**: Starting directory (usually `/`)
 
 3. **Save and Connect**
    - Click **"Add Connection"** to save
    - Click the **"Connect"** button next to your new connection
-   - Enter your password or SSH key passphrase when prompted
-   - Choose **"Yes"** to save credentials securely (optional)
+   - If no password was stored, you'll be prompted to enter it
+   - Choose **"Yes"** to save credentials securely for future connections
 
 ## Daily Usage
 
@@ -162,6 +164,39 @@ You can rename or delete files and directories directly on the remote server:
 ### Switching Servers
 - Click the **X** (disconnect) button in the remote files view
 - Select a different connection from the recent connections list
+
+## Anonymous FTP Support
+
+Remote File Browser fully supports anonymous FTP connections for public file servers.
+
+### Setting Up Anonymous FTP
+1. In the connection form, select **FTP** as the protocol
+2. Check the **"Anonymous FTP Connection"** checkbox
+3. **Username/Password**: Optional - you can:
+   - Leave both fields empty (extension uses default anonymous credentials)
+   - Enter custom username/password if the server requires specific anonymous credentials
+4. **Host and Port**: Enter the FTP server details as normal
+5. Save and connect
+
+### Anonymous FTP Features
+- **Flexible Authentication**: Works with servers that require empty credentials or specific anonymous usernames
+- **No Credential Storage**: Anonymous connections don't prompt to save passwords
+- **Standard Operations**: Full support for browsing, downloading, uploading, and file management
+- **Auto-Detection**: Extension automatically handles common anonymous FTP patterns
+
+### Authentication Error Recovery
+
+If you encounter authentication failures, the extension provides smart recovery options:
+
+#### For Password Authentication
+- **Retry Prompt**: When authentication fails, you'll get an option to "Retry with different password"
+- **Secure Storage**: Option to save the corrected password securely for future connections
+- **Graceful Fallback**: If you cancel the retry, the original error is shown without losing context
+
+#### For SSH Key Authentication  
+- **Passphrase Recovery**: If key decryption fails, you'll be prompted for the correct passphrase
+- **Secure Passphrase Storage**: Option to save passphrases securely in your OS keychain
+- **PPK Support**: Full error handling for PuTTY PPK v2/v3 key format issues
 
 ## Connection Manager Features
 
