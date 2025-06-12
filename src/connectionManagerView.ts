@@ -105,7 +105,8 @@ export class ConnectionManagerView {
                     delete message.data.password;
                 }
                 
-                connections[message.index] = message.data;
+                // Merge updated data with existing connection to preserve existing properties
+                connections[message.index] = { ...connections[message.index], ...message.data };
                 await config.update('connections', connections, vscode.ConfigurationTarget.Global);
                 vscode.window.showInformationMessage('Connection updated successfully');
                 this.loadConnections();
