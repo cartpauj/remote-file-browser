@@ -233,7 +233,7 @@ export class ConnectionManagerView {
             let connectionConfig = { ...connection };
             const connectionId = CredentialManager.generateConnectionId(connection);
 
-            if (connection.authType === 'key') {
+            if (connection.authType?.toLowerCase() === 'key') {
                 // SSH key authentication - check for stored passphrase first
                 let passphrase = await this.credentialManager.getPassphrase(connectionId);
                 
@@ -997,8 +997,8 @@ export class ConnectionManagerView {
                         <div class="connection-name">\${conn.name || 'Unnamed Connection'}</div>
                         <div class="connection-details">
                             \${(conn.protocol || 'sftp').toUpperCase()}://\${conn.username}@\${conn.host}:\${conn.port || 22}
-                            <br>Path: \${conn.remotePath || '/'} | Auth: \${conn.authType === 'key' ? 'SSH Key' : 'Password'}
-                            \${conn.authType === 'key' ? \`<br>Key: \${conn.keyPath || 'Not specified'}\` : ''}
+                            <br>Path: \${conn.remotePath || '/'} | Auth: \${conn.authType?.toLowerCase() === 'key' ? 'SSH Key' : 'Password'}
+                            \${conn.authType?.toLowerCase() === 'key' ? \`<br>Key: \${conn.keyPath || 'Not specified'}\` : ''}
                         </div>
                     </div>
                     <div class="connection-actions">

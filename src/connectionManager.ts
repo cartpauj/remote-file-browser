@@ -236,7 +236,7 @@ export class ConnectionManager {
                     (this.config.keepAliveInterval || 30000) : 0
             };
 
-            if (this.config.authType === 'key' && this.config.keyPath) {
+            if (this.config.authType?.toLowerCase() === 'key' && this.config.keyPath) {
                 // SSH key authentication
                 try {
                     const keyData = fs.readFileSync(this.config.keyPath, 'utf8');
@@ -299,7 +299,7 @@ export class ConnectionManager {
             const errorMessage = (error as any).message || String(error);
             
             // Only show SSH key specific error for key authentication
-            if (this.config.authType === 'key' && (errorMessage.includes('privateKey') || errorMessage.includes('authentication'))) {
+            if (this.config.authType?.toLowerCase() === 'key' && (errorMessage.includes('privateKey') || errorMessage.includes('authentication'))) {
                 throw new Error(`SSH key authentication failed: ${errorMessage}. Verify the key file is valid and the passphrase is correct.`);
             }
             

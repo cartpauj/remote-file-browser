@@ -259,7 +259,7 @@ async function connectToSavedConnection(connectionIndex: number) {
 
     try {
 
-        if (connection.authType === 'key') {
+        if (connection.authType?.toLowerCase() === 'key') {
             // SSH key authentication - check for stored passphrase first
             let passphrase = await credentialManager.getPassphrase(connectionId);
             
@@ -338,7 +338,7 @@ async function connectToSavedConnection(connectionIndex: number) {
                           // Handshake timeouts are often authentication issues with wrong credentials
                           (errorMessage.toLowerCase().includes('handshake') && errorMessage.toLowerCase().includes('timed out'));
         
-        if (isAuthError && connectionConfig.authType === 'password') {
+        if (isAuthError && connectionConfig.authType?.toLowerCase() === 'password') {
             // Offer to retry with different password
             const choice = await vscode.window.showErrorMessage(
                 `Authentication failed: ${errorMessage}`,
