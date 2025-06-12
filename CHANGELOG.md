@@ -5,6 +5,14 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.2] - 2025-12-06
+
+### Fixed
+- **Connection Manager Delete Button**: Fixed delete button in connections manager not working due to webview sandboxing restrictions
+- **Modal Dialog Support**: Replaced unsupported confirm() dialog with VS Code's native showWarningMessage() for proper user confirmation
+- **JavaScript Function Scope**: Corrected function placement to ensure onclick handlers are properly accessible in webview
+- **Credential Cleanup**: Enhanced connection deletion to properly clean up stored passwords and SSH key passphrases
+
 ## [2.5.1] - 2025-01-11
 
 ### Fixed

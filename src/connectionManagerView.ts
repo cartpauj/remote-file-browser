@@ -65,10 +65,27 @@ export class ConnectionManagerView {
                 break;
 
             case 'deleteConnection':
-                connections.splice(message.index, 1);
-                await config.update('connections', connections, vscode.ConfigurationTarget.Global);
-                vscode.window.showInformationMessage('Connection deleted successfully');
-                this.loadConnections();
+                const connectionToDelete = connections[message.index];
+                const connectionName = connectionToDelete.name || `${connectionToDelete.username}@${connectionToDelete.host}`;
+                
+                // Show confirmation dialog
+                const confirmed = await vscode.window.showWarningMessage(
+                    `Are you sure you want to delete the connection "${connectionName}"?`,
+                    { modal: true },
+                    'Delete'
+                );
+                
+                if (confirmed === 'Delete') {
+                    const connectionId = `${connectionToDelete.host}:${connectionToDelete.port}:${connectionToDelete.username}`;
+                    
+                    // Clean up stored credentials
+                    await this.credentialManager.deleteCredentials(connectionId);
+                    
+                    connections.splice(message.index, 1);
+                    await config.update('connections', connections, vscode.ConfigurationTarget.Global);
+                    vscode.window.showInformationMessage('Connection deleted successfully');
+                    this.loadConnections();
+                }
                 break;
 
             case 'testConnection':
@@ -649,6 +666,21 @@ export class ConnectionManagerView {
         let connections = [];
         let editingIndex = -1;
 
+        // Global functions for onclick handlers
+        function connectToConnection(index) {
+            vscode.postMessage({
+                type: 'connectToConnection',
+                index: index
+            });
+        }
+
+        function deleteConnection(index) {
+            vscode.postMessage({
+                type: 'deleteConnection',
+                index: index
+            });
+        }
+
         // Load connections
         window.addEventListener('message', event => {
             const message = event.data;
@@ -876,22 +908,6 @@ export class ConnectionManagerView {
             }
 
             document.getElementById('connectionForm').scrollIntoView({ behavior: 'smooth' });
-        }
-
-        function connectToConnection(index) {
-            vscode.postMessage({
-                type: 'connectToConnection',
-                index: index
-            });
-        }
-
-        function deleteConnection(index) {
-            if (confirm('Are you sure you want to delete this connection?')) {
-                vscode.postMessage({
-                    type: 'deleteConnection',
-                    index: index
-                });
-            }
         }
 
         function resetForm() {
