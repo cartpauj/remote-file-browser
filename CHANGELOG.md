@@ -5,6 +5,19 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.1] - 2025-01-11
+
+### Fixed
+- **FTP Connection Persistence**: Resolved critical FTP re-authentication issues that occurred between file operations
+- **Connection Timeout Optimization**: Standardized connection timeouts to 30 seconds for both SFTP and FTP protocols
+- **FTP Session Management**: Enhanced FTP operations with automatic connection state checking and seamless reconnection
+- **Operation Coverage**: Added connection persistence checks to all FTP operations (list, read, write, delete, rename, copy, file existence)
+
+### Enhanced
+- **Connection Reliability**: Improved FTP connection stability by leveraging basic-ftp library's persistent connection capabilities
+- **User Experience**: Eliminated repetitive authentication prompts during file downloads and operations
+- **Documentation**: Updated README.md and PROJECT-SCOPE.md to reflect current timeout defaults and connection improvements
+
 ## [2.4.1] - 2025-01-06
 
 ### Enhanced

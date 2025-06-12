@@ -270,7 +270,7 @@ Example configuration:
 ```
 
 **Note**: All advanced timeout and retry parameters are optional. If not specified, sensible defaults are used:
-- Connection timeouts: 20s (SFTP) / 30s (FTP)
+- Connection timeouts: 30s (both SFTP and FTP)
 - Operation timeout: 60s
 - Max retries: 3 attempts with exponential backoff
 - Keep-alive: Enabled with 30s intervals

@@ -220,7 +220,8 @@ export class ConnectionManager {
 
         this.sftpClient = new SftpClient();
         try {
-            const connectionTimeout = this.config.connectionTimeout || 20000;
+            // For SFTP, ensure minimum timeout of 5 seconds (0 timeout can cause issues)
+            const connectionTimeout = Math.max(this.config.connectionTimeout || 30000, 5000);
             const connectOptions: any = {
                 host: this.config.host,
                 port: this.config.port,
@@ -304,7 +305,7 @@ export class ConnectionManager {
     private async connectFtp(): Promise<void> {
         if (!this.config) throw new Error('No configuration provided');
 
-        // Set custom timeout for FTP via constructor
+        // For FTP, use 30 second default timeout for initial connection
         const connectionTimeout = this.config.connectionTimeout || 30000;
         this.ftpClient = new FtpClient(connectionTimeout);
         try {
@@ -339,6 +340,9 @@ export class ConnectionManager {
 
     private async listFilesFtp(path: string): Promise<RemoteFileInfo[]> {
         if (!this.ftpClient) throw new Error('FTP client not connected');
+        
+        // Check if connection is still alive and reconnect if needed
+        await this.ensureFtpConnection();
 
         const files = await this.withOperationTimeout(
             this.ftpClient.list(path),
@@ -366,6 +370,9 @@ export class ConnectionManager {
 
     private async readFileFtp(path: string): Promise<string> {
         if (!this.ftpClient) throw new Error('FTP client not connected');
+        
+        // Check if connection is still alive and reconnect if needed
+        await this.ensureFtpConnection();
 
         const chunks: Buffer[] = [];
         await this.withOperationTimeout(
@@ -390,6 +397,9 @@ export class ConnectionManager {
 
     private async writeFileFtp(path: string, content: string): Promise<void> {
         if (!this.ftpClient) throw new Error('FTP client not connected');
+        
+        // Check if connection is still alive and reconnect if needed
+        await this.ensureFtpConnection();
 
         await this.withOperationTimeout(
             this.ftpClient.uploadFrom({
@@ -469,6 +479,10 @@ export class ConnectionManager {
                 return true;
             } else {
                 if (!this.ftpClient) throw new Error('FTP client not connected');
+                
+                // Check if connection is still alive and reconnect if needed
+                await this.ensureFtpConnection();
+                
                 try {
                     await this.withOperationTimeout(
                         this.ftpClient.size(path),
@@ -540,6 +554,10 @@ export class ConnectionManager {
             }
         } else {
             if (!this.ftpClient) throw new Error('FTP client not connected');
+            
+            // Check if connection is still alive and reconnect if needed
+            await this.ensureFtpConnection();
+            
             try {
                 await this.withOperationTimeout(
                     this.ftpClient.ensureDir(targetPath),
@@ -594,6 +612,9 @@ export class ConnectionManager {
 
     private async deleteFileFtp(path: string, isDirectory: boolean): Promise<void> {
         if (!this.ftpClient) throw new Error('FTP client not connected');
+        
+        // Check if connection is still alive and reconnect if needed
+        await this.ensureFtpConnection();
 
         if (isDirectory) {
             // For directories, we need to recursively delete contents first
@@ -630,6 +651,10 @@ export class ConnectionManager {
 
     private async renameFileFtp(oldPath: string, newPath: string): Promise<void> {
         if (!this.ftpClient) throw new Error('FTP client not connected');
+        
+        // Check if connection is still alive and reconnect if needed
+        await this.ensureFtpConnection();
+        
         await this.withOperationTimeout(
             this.ftpClient.rename(oldPath, newPath),
             'rename file'
@@ -864,6 +889,16 @@ export class ConnectionManager {
                     'keep-alive check'
                 );
             }
+        }
+    }
+
+    private async ensureFtpConnection(): Promise<void> {
+        if (!this.ftpClient || !this.config) return;
+        
+        // Check if FTP connection is still alive by testing if it's closed
+        if (this.ftpClient.closed) {
+            console.log('FTP connection was closed, reconnecting...');
+            await this.connectFtp();
         }
     }
 }

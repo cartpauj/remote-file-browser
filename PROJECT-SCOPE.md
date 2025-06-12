@@ -21,7 +21,7 @@ This extension is designed to work seamlessly across all major operating systems
 - **Secure Credential Storage**: Uses VSCode's SecretStorage API (system keychain)
 - **Connection Persistence**: Saved connections with optional secure password storage
 - **Advanced Connection Timeout & Error Handling**:
-  - **Configurable Connection Timeouts**: User-customizable timeouts for both SFTP (default: 20s) and FTP (default: 30s) connections
+  - **Configurable Connection Timeouts**: User-customizable timeouts for both SFTP and FTP (default: 30s for both protocols)
   - **Operation-Specific Timeouts**: Separate configurable timeout for file operations (default: 60s) vs. connection establishment
   - **Enhanced Retry Strategy**: Exponential backoff with configurable retry attempts (default: 3) and base delay (default: 1s)
   - **Smart Keep-Alive Mechanisms**: Automatic connection health monitoring with configurable ping intervals (default: 30s)
@@ -29,6 +29,7 @@ This extension is designed to work seamlessly across all major operating systems
   - **Connection Health Monitoring**: Tracks uptime, success/failure rates, last operation times, and keep-alive status
   - **Operation-Level Recovery**: Failed operations automatically retry with exponential backoff after successful reconnection
   - **Graceful Disconnection**: Clean connection cleanup and comprehensive state management
+  - **FTP Session Persistence**: Enhanced FTP connection management with persistent sessions and automatic reconnection on operation failures
 
 ### 2. User Interface
 - **Activity Bar Integration**: Globe icon (🌐) in main activity bar for prominent access
@@ -297,6 +298,22 @@ src/
   - **README Enhancement**: Updated PPK compatibility section to reflect v2 and v3 support
   - **Technical Scope**: Documented PPK conversion architecture and security considerations
 
+### Phase 18: FTP Connection Persistence and Timeout Optimization
+- **FTP Session Management Overhaul**: Resolved critical FTP re-authentication issues affecting file operations
+  - **Root Cause Analysis**: Identified FTP timeout configuration causing session drops between operations
+  - **Timeout Standardization**: Unified connection timeouts to 30 seconds for both SFTP and FTP protocols
+  - **Connection State Monitoring**: Added `ensureFtpConnection()` method to check and restore closed FTP connections
+  - **Operation-Level Checks**: Enhanced all FTP operations (list, read, write, delete, rename, copy) with automatic reconnection
+- **Enhanced Connection Reliability**: Improved connection persistence across all file operations
+  - **Comprehensive Coverage**: Added connection state checks to all FTP methods including file existence and directory operations
+  - **Automatic Recovery**: FTP operations now automatically detect closed connections and reconnect seamlessly
+  - **User Experience**: Eliminated repetitive authentication prompts during file downloads and operations
+  - **Protocol Optimization**: Leveraged `basic-ftp` library's persistent connection capabilities effectively
+- **Connection Configuration Improvements**: Balanced performance and reliability in timeout settings
+  - **SFTP Safety**: Maintained minimum 5-second timeout for SFTP to prevent connection handshake issues
+  - **FTP Flexibility**: Implemented user-configurable timeouts while maintaining session persistence
+  - **Keep-Alive Integration**: Enhanced dual keep-alive system (application-level and protocol-level) for both protocols
+
 ## Configuration Schema
 ```json
 {
@@ -325,7 +342,7 @@ src/
 **All advanced parameters are optional with sensible defaults when left blank:**
 
 - **connectionTimeout**: Connection timeout in milliseconds
-  - *Default*: 20,000ms (20s) for SFTP, 30,000ms (30s) for FTP
+  - *Default*: 30,000ms (30s) for both SFTP and FTP
   - *Range*: 5,000-120,000ms (5-120 seconds)
 - **operationTimeout**: File operation timeout in milliseconds  
   - *Default*: 60,000ms (60s)
