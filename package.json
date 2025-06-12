@@ -133,6 +133,21 @@
 				"command": "remoteFileBrowser.connectFromWelcomeDebounced",
 				"title": "Connect from Welcome (Debounced)",
 				"category": "Remote File Browser"
+			},
+			{
+				"command": "remoteFileBrowser.editConnectionFromWelcome",
+				"title": "Edit Connection",
+				"category": "Remote File Browser"
+			},
+			{
+				"command": "remoteFileBrowser.deleteConnectionFromWelcome",
+				"title": "Delete Connection",
+				"category": "Remote File Browser"
+			},
+			{
+				"command": "remoteFileBrowser.addNewConnectionFromWelcome",
+				"title": "Add New Connection",
+				"category": "Remote File Browser"
 			}
 		],
 		"viewsContainers": {
@@ -140,7 +155,8 @@
 				{
 					"id": "remoteFileBrowser",
 					"title": "Remote Files",
-					"icon": "$(globe)"
+					"icon": "$(globe)",
+					"visibility": "visible"
 				}
 			]
 		},
@@ -233,6 +249,21 @@
 					"command": "remoteFileBrowser.deleteFile",
 					"when": "view == remoteFilesList && viewItem == directory",
 					"group": "2_danger"
+				},
+				{
+					"command": "remoteFileBrowser.editConnectionFromWelcome",
+					"when": "view == remoteFilesWelcome && viewItem == connection",
+					"group": "1_modification"
+				},
+				{
+					"command": "remoteFileBrowser.deleteConnectionFromWelcome",
+					"when": "view == remoteFilesWelcome && viewItem == connection",
+					"group": "2_danger"
+				},
+				{
+					"command": "remoteFileBrowser.addNewConnectionFromWelcome",
+					"when": "view == remoteFilesWelcome && viewItem == manageConnections",
+					"group": "1_modification"
 				}
 			],
 			"commandPalette": [

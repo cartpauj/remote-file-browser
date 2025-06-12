@@ -5,6 +5,7 @@ export interface WelcomeItem {
     description?: string;
     command?: vscode.Command;
     iconPath?: vscode.ThemeIcon;
+    connectionIndex?: number;
 }
 
 export class WelcomeViewProvider implements vscode.TreeDataProvider<WelcomeItem> {
@@ -75,6 +76,16 @@ export class WelcomeViewProvider implements vscode.TreeDataProvider<WelcomeItem>
             item.description = element.description;
             item.command = element.command;
             item.iconPath = element.iconPath;
+            // Set context value for connection items to enable context menu
+            if (element.command?.command?.startsWith('remoteFileBrowser.connectFromWelcome.')) {
+                item.contextValue = 'connection';
+                // Store the connection index in the tree item ID for context menu commands
+                item.id = `connection-${element.connectionIndex}`;
+            }
+            // Set context value for manage connections item
+            else if (element.command?.command === 'remoteFileBrowser.manageConnections') {
+                item.contextValue = 'manageConnections';
+            }
             return item;
         }
     }
@@ -128,7 +139,8 @@ export class WelcomeViewProvider implements vscode.TreeDataProvider<WelcomeItem>
                 command: isConnecting ? undefined : {
                     command: `remoteFileBrowser.connectFromWelcome.${i}`,
                     title: 'Connect'
-                }
+                },
+                connectionIndex: i
             });
         }
 

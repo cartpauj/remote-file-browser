@@ -40,6 +40,9 @@ export function activate(context: vscode.ExtensionContext) {
     connectionManagerView = new ConnectionManagerView(context);
     credentialManager = new CredentialManager(context);
     welcomeViewProvider = new WelcomeViewProvider(context);
+    
+    // Set the welcome view provider on the connection manager for updates
+    connectionManagerView.setWelcomeViewProvider(welcomeViewProvider);
 
     treeDataProvider = vscode.window.createTreeView('remoteFilesList', {
         treeDataProvider: remoteFileProvider,
@@ -170,6 +173,18 @@ export function activate(context: vscode.ExtensionContext) {
 
         vscode.commands.registerCommand('remoteFileBrowser.downloadFile', async (item) => {
             await openRemoteFile(item);
+        }),
+
+        vscode.commands.registerCommand('remoteFileBrowser.editConnectionFromWelcome', async (item) => {
+            await editConnectionFromWelcome(item);
+        }),
+
+        vscode.commands.registerCommand('remoteFileBrowser.deleteConnectionFromWelcome', async (item) => {
+            await deleteConnectionFromWelcome(item);
+        }),
+
+        vscode.commands.registerCommand('remoteFileBrowser.addNewConnectionFromWelcome', async () => {
+            await addNewConnectionFromWelcome();
         }),
 
         treeDataProvider,
@@ -606,8 +621,7 @@ async function cleanupCurrentConnectionTempFiles() {
         const choice = await vscode.window.showWarningMessage(
             `This will delete temporary files for the current connection (${connectionId}). Any open files from this server may no longer sync when saved. Continue?`,
             { modal: true },
-            'Delete Connection Temp Files',
-            'Cancel'
+            'Delete Connection Temp Files'
         );
         
         if (choice !== 'Delete Connection Temp Files') {
@@ -691,8 +705,7 @@ async function cleanupAllTempFiles() {
         const choice = await vscode.window.showWarningMessage(
             'This will delete ALL temporary files from ALL connections created by Remote File Browser. Any open files may no longer sync when saved. Continue?',
             { modal: true },
-            'Delete All Temp Files',
-            'Cancel'
+            'Delete All Temp Files'
         );
         
         if (choice !== 'Delete All Temp Files') {
@@ -1504,6 +1517,112 @@ function getCopyErrorMessage(error: any, item: any, newPath: string | undefined,
     return `Failed to copy ${itemType} from "${currentPath}" to "${targetPath}": ${errorMessage}`;
 }
 
+async function editConnectionFromWelcome(item: any) {
+    try {
+        // Extract connection index from the tree item
+        let connectionIndex: number | undefined;
+        
+        // Method 1: From tree item ID
+        if (item.id && item.id.startsWith('connection-')) {
+            connectionIndex = parseInt(item.id.replace('connection-', ''), 10);
+        }
+        // Method 2: From command arguments in tree item
+        else if (item.command?.command) {
+            const match = item.command.command.match(/remoteFileBrowser\.connectFromWelcome\.(\d+)/);
+            if (match) {
+                connectionIndex = parseInt(match[1], 10);
+            }
+        }
+        // Method 3: From connectionIndex property
+        else if (item.connectionIndex !== undefined) {
+            connectionIndex = item.connectionIndex;
+        }
+        
+        if (connectionIndex === undefined || isNaN(connectionIndex)) {
+            vscode.window.showErrorMessage('Unable to identify connection');
+            return;
+        }
+        
+        // Show the connection manager and pass the edit index
+        connectionManagerView.showWithEdit(connectionIndex);
+        
+    } catch (error) {
+        console.error('Error editing connection from welcome:', error);
+        vscode.window.showErrorMessage('Failed to edit connection');
+    }
+}
+
+async function deleteConnectionFromWelcome(item: any) {
+    try {
+        // Extract connection index from the tree item
+        let connectionIndex: number | undefined;
+        
+        // Method 1: From tree item ID
+        if (item.id && item.id.startsWith('connection-')) {
+            connectionIndex = parseInt(item.id.replace('connection-', ''), 10);
+        }
+        // Method 2: From command arguments in tree item
+        else if (item.command?.command) {
+            const match = item.command.command.match(/remoteFileBrowser\.connectFromWelcome\.(\d+)/);
+            if (match) {
+                connectionIndex = parseInt(match[1], 10);
+            }
+        }
+        // Method 3: From connectionIndex property
+        else if (item.connectionIndex !== undefined) {
+            connectionIndex = item.connectionIndex;
+        }
+        
+        if (connectionIndex === undefined || isNaN(connectionIndex)) {
+            vscode.window.showErrorMessage('Unable to identify connection');
+            return;
+        }
+        
+        const config = vscode.workspace.getConfiguration('remoteFileBrowser');
+        const connections = config.get<any[]>('connections', []);
+        
+        if (connectionIndex < 0 || connectionIndex >= connections.length) {
+            vscode.window.showErrorMessage('Connection not found');
+            return;
+        }
+        
+        const connection = connections[connectionIndex];
+        const connectionName = connection.name || `${connection.username}@${connection.host}`;
+        
+        // Show confirmation dialog
+        const confirmed = await vscode.window.showWarningMessage(
+            `Are you sure you want to delete the connection "${connectionName}"?`,
+            { modal: true },
+            'Delete'
+        );
+        
+        if (confirmed === 'Delete') {
+            const connectionId = `${connection.host}:${connection.port}:${connection.username}`;
+            
+            // Clean up stored credentials
+            await credentialManager.deleteCredentials(connectionId);
+            
+            connections.splice(connectionIndex, 1);
+            await config.update('connections', connections, vscode.ConfigurationTarget.Global);
+            vscode.window.showInformationMessage('Connection deleted successfully');
+            welcomeViewProvider.refresh();
+        }
+        
+    } catch (error) {
+        console.error('Error deleting connection from welcome:', error);
+        vscode.window.showErrorMessage('Failed to delete connection');
+    }
+}
+
+async function addNewConnectionFromWelcome() {
+    try {
+        // Show the connection manager and trigger add new connection mode
+        connectionManagerView.showWithAddNew();
+    } catch (error) {
+        console.error('Error opening add new connection from welcome:', error);
+        vscode.window.showErrorMessage('Failed to open add new connection');
+    }
+}
 
 export function deactivate() {
     if (connectionManager) {

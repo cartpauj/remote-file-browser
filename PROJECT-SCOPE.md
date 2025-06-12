@@ -35,6 +35,10 @@ This extension is designed to work seamlessly across all major operating systems
 - **Activity Bar Integration**: Globe icon (🌐) in main activity bar for prominent access
 - **Welcome Screen**: Dynamic tree view showing recent connections when disconnected
 - **Recent Connections**: Collapsible section showing up to 10 most recent connections
+- **Enhanced Context Menus**: Right-click functionality for streamlined workflows
+  - **Manage Connections Item**: Right-click "Manage Connections" → "Add New Connection"
+  - **Individual Connections**: Right-click any connection → "Edit Connection" or "Delete Connection"
+  - **Direct Access**: Context menus provide quick access to connection management without opening full interface
 - **Click Protection**: Prevents multiple connection attempts with visual feedback
 - **Remote File Tree**: Hierarchical view of remote files and folders with parent directory navigation
 - **File Sorting**: Folders first (alphabetically), then files (alphabetically)
@@ -43,6 +47,12 @@ This extension is designed to work seamlessly across all major operating systems
 ### 3. Connection Manager GUI
 - **Visual Connection Manager**: Web-based interface for managing server connections
 - **Form-based Configuration**: Add/edit connections without JSON editing
+- **Enhanced Form UX**: Modern interface with improved usability
+  - **Hidden by Default**: Connection form is initially hidden for cleaner interface
+  - **Smart Visibility**: Form appears when adding or editing connections  
+  - **Auto-Hide Behavior**: Form automatically hides after successful operations or when canceled
+  - **Green Add Button**: Prominent green "➕ Add New Connection" button for intuitive access
+  - **Context-Aware Buttons**: Add button hides during form interactions to reduce visual clutter
 - **SSH Key File Browser**: Browse and select SSH key files using native file dialog
   - Supports OpenSSH private keys (.key, .pem, .openssh)
   - Supports PuTTY private keys v2 and v3 (.ppk) with automatic format conversion
@@ -360,6 +370,29 @@ src/
   - **Bundle Size**: Maintained 339KB package size with webpack production bundling
   - **Hidden Source Maps**: Enabled debugging capabilities without exposing source code
   - **Native Module Handling**: Proper packaging of SSH2 binary dependencies for cross-platform compatibility
+
+### Phase 21: Enhanced Connection Manager UX and Context Menus
+- **Connection Manager Form Redesign**: Implemented modern, user-friendly interface with smart visibility
+  - **Hidden by Default**: Connection form initially hidden for cleaner first impression
+  - **Green Add Button**: Prominent green "➕ Add New Connection" button for intuitive access
+  - **Smart Visibility Logic**: Form appears when adding/editing, hides after successful operations
+  - **Context-Aware Buttons**: Add button hides during active form interactions to reduce visual clutter
+  - **Auto-Hide Behavior**: Form automatically disappears after successful add/edit operations or cancellation
+- **Welcome Screen Context Menus**: Added comprehensive right-click functionality for streamlined workflows
+  - **Manage Connections Context**: Right-click "Manage Connections" item → "Add New Connection" option
+  - **Individual Connection Context**: Right-click any saved connection → "Edit Connection" and "Delete Connection" options
+  - **Direct Management Access**: Context menus provide quick access to connection operations without opening full manager interface
+  - **Consistent UX**: All context operations open connection manager with appropriate form state (edit mode, add mode, etc.)
+- **Cross-Interface Integration**: Seamless communication between welcome screen and connection manager
+  - **Edit from Welcome**: Right-click edit opens connection manager with selected connection pre-loaded in form
+  - **Add from Welcome**: Right-click add opens connection manager with fresh form and hidden add button
+  - **Delete from Welcome**: Right-click delete shows confirmation dialog and refreshes welcome screen on success
+  - **Automatic Sync**: Welcome screen automatically updates when connections are modified through any interface
+- **Improved Button Management**: Enhanced button visibility logic across all interaction modes
+  - **Add Mode**: Add button hidden when form is active (both from button click and welcome screen)
+  - **Edit Mode**: Add button hidden when editing existing connections
+  - **Default State**: Add button visible when connection manager shows list only
+  - **Consistent Behavior**: Button visibility synchronized across all entry points (direct access, welcome screen context menus)
 
 ## Configuration Schema
 ```json

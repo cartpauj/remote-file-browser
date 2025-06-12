@@ -2,13 +2,40 @@ import * as vscode from 'vscode';
 import * as os from 'os';
 import * as path from 'path';
 import { CredentialManager } from './credentialManager';
+import { WelcomeViewProvider } from './welcomeViewProvider';
 
 export class ConnectionManagerView {
     private panel: vscode.WebviewPanel | undefined;
     private credentialManager: CredentialManager;
+    private welcomeViewProvider: WelcomeViewProvider | undefined;
 
     constructor(private context: vscode.ExtensionContext) {
         this.credentialManager = new CredentialManager(context);
+    }
+
+    public setWelcomeViewProvider(welcomeViewProvider: WelcomeViewProvider) {
+        this.welcomeViewProvider = welcomeViewProvider;
+    }
+
+    public showWithEdit(connectionIndex: number) {
+        this.show();
+        // Delay sending the edit message to ensure webview is ready
+        setTimeout(() => {
+            this.panel?.webview.postMessage({
+                type: 'editConnection',
+                index: connectionIndex
+            });
+        }, 200);
+    }
+
+    public showWithAddNew() {
+        this.show();
+        // Delay sending the add new message to ensure webview is ready
+        setTimeout(() => {
+            this.panel?.webview.postMessage({
+                type: 'addNewConnection'
+            });
+        }, 200);
     }
 
     public show() {
@@ -63,6 +90,7 @@ export class ConnectionManagerView {
                 await config.update('connections', connections, vscode.ConfigurationTarget.Global);
                 vscode.window.showInformationMessage('Connection added successfully');
                 this.loadConnections();
+                this.welcomeViewProvider?.refresh();
                 break;
 
             case 'updateConnection':
@@ -81,6 +109,7 @@ export class ConnectionManagerView {
                 await config.update('connections', connections, vscode.ConfigurationTarget.Global);
                 vscode.window.showInformationMessage('Connection updated successfully');
                 this.loadConnections();
+                this.welcomeViewProvider?.refresh();
                 break;
 
             case 'deleteConnection':
@@ -104,6 +133,7 @@ export class ConnectionManagerView {
                     await config.update('connections', connections, vscode.ConfigurationTarget.Global);
                     vscode.window.showInformationMessage('Connection deleted successfully');
                     this.loadConnections();
+                    this.welcomeViewProvider?.refresh();
                 }
                 break;
 
@@ -377,6 +407,16 @@ export class ConnectionManagerView {
             opacity: 0.8;
         }
         
+        .success {
+            background: var(--vscode-terminal-ansiGreen);
+            color: white;
+        }
+        
+        .success:hover {
+            background: var(--vscode-terminal-ansiGreen);
+            opacity: 0.8;
+        }
+        
         .advanced-toggle {
             background: transparent;
             color: var(--vscode-foreground);
@@ -553,7 +593,7 @@ export class ConnectionManagerView {
     <div class="container">
         <h1>Manage Remote Connections</h1>
         
-        <div class="form-section">
+        <div class="form-section" id="connectionFormSection" style="display: none;">
             <h2 id="formTitle">Add New Connection</h2>
             <form id="connectionForm">
                 <div class="form-group">
@@ -690,6 +730,7 @@ export class ConnectionManagerView {
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                 <h2 style="margin: 0;">Saved Connections</h2>
                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button type="button" id="addNewConnectionBtn" class="success">➕ Add New Connection</button>
                     <button type="button" id="openTempDirBtn">💻 View tmp files in shell</button>
                     <button type="button" id="cleanupBtn" class="danger">🗑️ Clean Up Temp Files</button>
                 </div>
@@ -726,6 +767,17 @@ export class ConnectionManagerView {
                 renderConnections();
             } else if (message.type === 'keyFileSelected') {
                 document.getElementById('keyPath').value = message.path;
+            } else if (message.type === 'editConnection') {
+                // Edit connection from welcome view
+                if (message.index >= 0 && message.index < connections.length) {
+                    editConnection(message.index);
+                }
+            } else if (message.type === 'addNewConnection') {
+                // Add new connection from welcome view
+                resetFormData();
+                document.getElementById('cancelBtn').style.display = 'inline-block';
+                document.getElementById('addNewConnectionBtn').style.display = 'none';
+                showConnectionForm();
             }
         });
 
@@ -901,6 +953,21 @@ export class ConnectionManagerView {
             });
         });
 
+        // Add new connection button handler
+        document.getElementById('addNewConnectionBtn').addEventListener('click', () => {
+            resetFormData();
+            document.getElementById('cancelBtn').style.display = 'inline-block';
+            document.getElementById('addNewConnectionBtn').style.display = 'none';
+            showConnectionForm();
+        });
+        
+        function resetForm() {
+            resetFormData();
+            hideConnectionForm();
+            // Show the add new button again
+            document.getElementById('addNewConnectionBtn').style.display = 'inline-block';
+        }
+
         // Cleanup temp files button handler
         document.getElementById('cleanupBtn').addEventListener('click', () => {
             vscode.postMessage({
@@ -944,10 +1011,24 @@ export class ConnectionManagerView {
             \`).join('');
         }
 
+        function showConnectionForm() {
+            document.getElementById('connectionFormSection').style.display = 'block';
+            document.getElementById('cancelBtn').style.display = 'inline-block';
+            document.getElementById('connectionForm').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function hideConnectionForm() {
+            document.getElementById('connectionFormSection').style.display = 'none';
+        }
+
         function editConnection(index) {
             const conn = connections[index];
             editingIndex = index;
 
+            // Hide the add new button while editing
+            document.getElementById('addNewConnectionBtn').style.display = 'none';
+            
+            showConnectionForm();
             document.getElementById('formTitle').textContent = 'Edit Connection';
             document.getElementById('submitBtn').textContent = 'Update Connection';
             document.getElementById('cancelBtn').style.display = 'inline-block';
@@ -1000,7 +1081,7 @@ export class ConnectionManagerView {
             document.getElementById('connectionForm').scrollIntoView({ behavior: 'smooth' });
         }
 
-        function resetForm() {
+        function resetFormData() {
             editingIndex = -1;
             document.getElementById('formTitle').textContent = 'Add New Connection';
             document.getElementById('submitBtn').textContent = 'Add Connection';

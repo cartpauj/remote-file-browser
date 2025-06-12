@@ -35,6 +35,7 @@ Edit remote files seamlessly in VSCode/Cursor with instant access and automatic 
 
 2. **Add Your First Connection**
    - Click **"Manage Connections"** in the welcome screen
+   - Click the green **"➕ Add New Connection"** button to show the connection form
    - Fill out the connection form:
      - **Connection Name**: A friendly name for your server
      - **Protocol**: SFTP (recommended) or FTP
@@ -47,7 +48,7 @@ Edit remote files seamlessly in VSCode/Cursor with instant access and automatic 
      - **Remote Path**: Starting directory (usually `/`)
 
 3. **Save and Connect**
-   - Click **"Add Connection"** to save
+   - Click **"Add Connection"** to save (the form will automatically hide after saving)
    - Click the **"Connect"** button next to your new connection
    - If no password was stored, you'll be prompted to enter it
    - Choose **"Yes"** to save credentials securely for future connections
@@ -58,6 +59,9 @@ Edit remote files seamlessly in VSCode/Cursor with instant access and automatic 
 - Click the globe icon (🌐) to see your recent connections
 - Expand **"Recent Connections"** to see up to 10 saved servers
 - **Single-click** any connection name to connect instantly (double-clicking is not necessary)
+- **Right-click options**:
+  - **Manage Connections** item: Right-click to access **"Add New Connection"** option
+  - **Individual connections**: Right-click for **"Edit Connection"** and **"Delete Connection"** options
 
 ### Browsing Files
 - Once connected, browse files in the **"Remote Files"** tree view
@@ -217,9 +221,29 @@ If you encounter authentication failures, the extension provides smart recovery 
 All PPK files are automatically converted to OpenSSH format in memory - no manual conversion required! Simply select your .ppk file and it will work regardless of version.
 
 ### Managing Connections
-- **Edit**: Click "Edit" next to any connection to modify settings
-- **Delete**: Click "Delete" to remove a connection permanently
-- **Connect**: Click "Connect" to establish connection immediately
+
+#### Adding New Connections
+- **From Connection Manager**: Click the green **"➕ Add New Connection"** button
+- **From Welcome Screen**: Right-click **"Manage Connections"** → select **"Add New Connection"**
+- Both methods open the connection manager with the form ready for input
+- The form automatically hides after successfully saving a connection
+
+#### Editing and Deleting Connections
+- **Edit**: 
+  - Click **"Edit"** next to any connection in the connection manager
+  - Or right-click any connection in the welcome screen → **"Edit Connection"**
+  - Both methods open the connection manager with the selected connection pre-loaded
+- **Delete**: 
+  - Click **"Delete"** next to any connection in the connection manager
+  - Or right-click any connection in the welcome screen → **"Delete Connection"**
+  - Both methods show a confirmation dialog before deletion
+- **Connect**: Click **"Connect"** to establish connection immediately
+
+#### Form Behavior
+- **Hidden by Default**: The connection form is hidden when you first open the connection manager
+- **Smart Visibility**: The form appears when adding or editing connections
+- **Auto-Hide**: The form automatically hides after successful operations or when canceled
+- **Button Management**: The "Add New Connection" button is hidden when the form is active to reduce clutter
 
 ### Temporary File Management
 - **View Temp Files**: Click **"💻 View tmp files in shell"** to see downloaded files

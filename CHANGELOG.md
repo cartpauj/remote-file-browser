@@ -5,6 +5,21 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.4] - 2024-12-12
+
+### Added
+- **Enhanced Connection Manager UX**: Connection form now hidden by default with green "Add New Connection" button for cleaner interface
+- **Welcome Screen Context Menus**: Right-click "Manage Connections" for "Add New Connection" option
+- **Connection Context Menus**: Right-click any saved connection for "Edit Connection" and "Delete Connection" options
+- **Smart Form Visibility**: Form automatically appears when adding/editing and hides after successful operations
+- **Pinned Activity Bar Icon**: Remote Files globe icon now visible by default upon installation
+
+### Enhanced
+- **Form Behavior**: Auto-hide functionality with context-aware button management during form interactions
+- **Cross-Interface Integration**: Seamless communication between welcome screen and connection manager
+- **User Experience**: Streamlined workflows with multiple access methods for connection management
+- **Documentation**: Updated README and PROJECT-SCOPE with comprehensive coverage of new features
+
 ## [2.5.3] - 2024-12-12
 
 ### Fixed
