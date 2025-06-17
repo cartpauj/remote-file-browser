@@ -1,4 +1,4 @@
-import * as SftpClient from 'ssh2-sftp-client';
+import SftpClient from 'pure-js-sftp';
 import { Client as FtpClient } from 'basic-ftp';
 import * as fs from 'fs';
 import { Readable, Writable, PassThrough } from 'stream';
@@ -230,7 +230,7 @@ export class ConnectionManager {
                 host: this.config.host,
                 port: this.config.port,
                 username: this.config.username,
-                readyTimeout: connectionTimeout,
+                timeout: connectionTimeout,
                 retries: 0, // We handle retries at a higher level now
                 keepaliveInterval: this.config.enableKeepAlive !== false ? 
                     (this.config.keepAliveInterval || 30000) : 0

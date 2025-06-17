@@ -848,7 +848,10 @@ export class ConnectionManagerView {
             const authTypeSelect = document.getElementById('authType');
             
             if (e.target.value === 'sftp') {
-                port.value = '22';
+                // Only set default port if field is empty or has FTP default
+                if (!port.value || port.value === '21') {
+                    port.value = '22';
+                }
                 // Only update timeout if it's still at the default value
                 if (connectionTimeout.value === '30000' || connectionTimeout.value === '') {
                     connectionTimeout.value = '20000';
@@ -858,10 +861,18 @@ export class ConnectionManagerView {
                 anonymousCheckbox.checked = false;
                 
                 // Show SSH Key option for SFTP
+                const currentAuthType = authTypeSelect.value;
                 authTypeSelect.innerHTML = '<option value="password">Password</option><option value="key">SSH Key</option>';
+                // Restore the auth type if it's still valid
+                if (currentAuthType === 'password' || currentAuthType === 'key') {
+                    authTypeSelect.value = currentAuthType;
+                }
                 updateCredentialRequirements();
             } else if (e.target.value === 'ftp') {
-                port.value = '21';
+                // Only set default port if field is empty or has SFTP default
+                if (!port.value || port.value === '22') {
+                    port.value = '21';
+                }
                 // Only update timeout if it's still at the default value
                 if (connectionTimeout.value === '20000' || connectionTimeout.value === '') {
                     connectionTimeout.value = '30000';
@@ -870,8 +881,16 @@ export class ConnectionManagerView {
                 anonymousGroup.style.display = 'block';
                 
                 // Hide SSH Key option for FTP (only password supported)
+                const currentAuthType = authTypeSelect.value;
                 authTypeSelect.innerHTML = '<option value="password">Password</option>';
-                authTypeSelect.value = 'password';
+                // Only change to password if user had SSH key selected (invalid for FTP)
+                if (currentAuthType === 'key') {
+                    authTypeSelect.value = 'password';
+                    // Show warning that SSH keys aren't supported for FTP
+                    setTimeout(() => {
+                        alert('Note: SSH Key authentication is not supported for FTP. Switched to Password authentication.');
+                    }, 100);
+                }
                 
                 // Hide SSH key fields when switching to FTP
                 document.getElementById('keyPathGroup').style.display = 'none';
@@ -996,7 +1015,7 @@ export class ConnectionManagerView {
                     <div class="connection-header">
                         <div class="connection-name">\${conn.name || 'Unnamed Connection'}</div>
                         <div class="connection-details">
-                            \${(conn.protocol || 'sftp').toUpperCase()}://\${conn.username}@\${conn.host}:\${conn.port || 22}
+                            \${(conn.protocol || 'sftp').toUpperCase()}://\${conn.username}@\${conn.host}:\${conn.port !== undefined ? conn.port : (conn.protocol === 'ftp' ? 21 : 22)}
                             <br>Path: \${conn.remotePath || '/'} | Auth: \${conn.authType?.toLowerCase() === 'key' ? 'SSH Key' : 'Password'}
                             \${conn.authType?.toLowerCase() === 'key' ? \`<br>Key: \${conn.keyPath || 'Not specified'}\` : ''}
                         </div>
@@ -1037,7 +1056,7 @@ export class ConnectionManagerView {
             document.getElementById('name').value = conn.name || '';
             document.getElementById('protocol').value = conn.protocol || 'sftp';
             document.getElementById('host').value = conn.host || '';
-            document.getElementById('port').value = conn.port || 22;
+            document.getElementById('port').value = conn.port !== undefined ? conn.port : (conn.protocol === 'ftp' ? 21 : 22);
             document.getElementById('username').value = conn.username || '';
             // Don't display stored password for security - leave empty
             document.getElementById('password').value = '';
@@ -1060,6 +1079,9 @@ export class ConnectionManagerView {
             // Trigger protocol change to show/hide anonymous option
             const protocolEvent = new Event('change');
             document.getElementById('protocol').dispatchEvent(protocolEvent);
+
+            // Re-set auth type after protocol change (which resets the select options)
+            document.getElementById('authType').value = conn.authType || 'password';
 
             // Trigger auth type change to show/hide fields
             const authTypeEvent = new Event('change');
