@@ -222,6 +222,7 @@ export class ConnectionManager {
     private async connectSftp(): Promise<void> {
         if (!this.config) throw new Error('No configuration provided');
 
+        console.log('[ConnectionManager] Starting SFTP connection...');
         this.sftpClient = new SftpClient();
         try {
             // For SFTP, ensure minimum timeout of 5 seconds (0 timeout can cause issues)
@@ -233,13 +234,35 @@ export class ConnectionManager {
                 timeout: connectionTimeout,
                 retries: 0, // We handle retries at a higher level now
                 keepaliveInterval: this.config.enableKeepAlive !== false ? 
-                    (this.config.keepAliveInterval || 30000) : 0
+                    (this.config.keepAliveInterval || 30000) : 0,
+                debug: true // Enable debugging
             };
+            
+            console.log('[ConnectionManager] SFTP config:', JSON.stringify({
+                ...connectOptions,
+                password: connectOptions.password ? '[REDACTED]' : undefined,
+                privateKey: connectOptions.privateKey ? `[REDACTED - Length: ${connectOptions.privateKey?.length || 0} chars]` : undefined,
+                passphrase: connectOptions.passphrase ? `[REDACTED - Length: ${connectOptions.passphrase?.length || 0} chars]` : undefined
+            }, null, 2));
+            
+            console.log('[ConnectionManager] Connection details:');
+            console.log(`  Host: ${this.config.host}`);
+            console.log(`  Port: ${this.config.port}`);
+            console.log(`  Username: ${this.config.username}`);
+            console.log(`  Auth type: ${this.config.authType}`);
+            console.log(`  Key path: ${this.config.keyPath || 'N/A'}`);
+            console.log(`  Has password: ${!!this.config.password}`);
+            console.log(`  Has passphrase: ${!!this.config.passphrase}`);
 
             if (this.config.authType?.toLowerCase() === 'key' && this.config.keyPath) {
                 // SSH key authentication
+                console.log('[ConnectionManager] Processing SSH key authentication...');
+                console.log(`  Key file path: ${this.config.keyPath}`);
+                console.log(`  File exists: ${fs.existsSync(this.config.keyPath)}`);
                 try {
                     const keyData = fs.readFileSync(this.config.keyPath, 'utf8');
+                    console.log(`  Key data length: ${keyData.length} chars`);
+                    console.log(`  Key format: ${keyData.startsWith('PuTTY-User-Key-File-') ? 'PPK' : keyData.includes('-----BEGIN OPENSSH PRIVATE KEY-----') ? 'OpenSSH' : keyData.includes('-----BEGIN') ? 'PEM' : 'Unknown'}`);
                     
                     // Check if it's a PuTTY .ppk file and convert it to OpenSSH format
                     if (keyData.startsWith('PuTTY-User-Key-File-')) {
@@ -266,9 +289,13 @@ export class ConnectionManager {
                         }
                     } else {
                         // For standard OpenSSH/PEM keys, use raw key data
+                        console.log('[ConnectionManager] Using raw key data for OpenSSH/PEM format');
                         connectOptions.privateKey = keyData;
                         if (this.config.passphrase) {
+                            console.log(`[ConnectionManager] Adding passphrase (${this.config.passphrase.length} chars)`);
                             connectOptions.passphrase = this.config.passphrase;
+                        } else {
+                            console.log('[ConnectionManager] No passphrase provided');
                         }
                     }
                 } catch (keyError) {
@@ -289,10 +316,14 @@ export class ConnectionManager {
                 }
             } else {
                 // Password authentication
+                console.log('[ConnectionManager] Using password authentication');
+                console.log(`  Has password: ${!!this.config.password}`);
                 connectOptions.password = this.config.password;
             }
 
+            console.log('[ConnectionManager] Calling pure-js-sftp connect...');
             await this.sftpClient.connect(connectOptions);
+            console.log('[ConnectionManager] SFTP connection successful!');
         } catch (error) {
             console.error('SFTP connection failed:', error);
             
