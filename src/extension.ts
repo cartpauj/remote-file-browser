@@ -8,7 +8,6 @@ import { ConnectionManager } from './connectionManager';
 import { ConnectionManagerView } from './connectionManagerView';
 import { CredentialManager } from './credentialManager';
 import { WelcomeViewProvider } from './welcomeViewProvider';
-// import { enableSigningFix } from './ssh2StreamsSigningFix'; // DELETED - starting fresh
 
 let remoteFileProvider: RemoteFileProvider;
 let connectionManager: ConnectionManager;
@@ -36,11 +35,6 @@ function generateConnectionId(config: any): string {
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Remote File Browser extension is now active');
-
-
-    // Apply ssh2-streams signing fix (will be conditional based on auth type)
-    // enableSigningFix(); // DELETED - starting fresh
-
 
     connectionManager = new ConnectionManager();
     remoteFileProvider = new RemoteFileProvider(connectionManager);

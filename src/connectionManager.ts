@@ -1018,8 +1018,4 @@ export class ConnectionManager {
         }
     }
 
-    private applyCryptoFix(): void {
-        // Legacy crypto fix - now replaced by ssh2StreamsSigningFix
-        // This method is kept for compatibility but does nothing
-    }
 }
