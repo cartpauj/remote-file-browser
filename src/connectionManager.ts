@@ -223,59 +223,40 @@ export class ConnectionManager {
         if (!this.config) throw new Error('No configuration provided');
 
         console.log('[ConnectionManager] Starting SFTP connection...');
-        this.sftpClient = new SftpClient();
+        
+        // Try to work around webpack bundling issues by dynamically creating the client
         try {
-            // For SFTP, ensure minimum timeout of 5 seconds (0 timeout can cause issues)
-            const connectionTimeout = Math.max(this.config.connectionTimeout || 30000, 5000);
+            // Force pure JS mode before creating client
+            (global as any).process = (global as any).process || {};
+            (global as any).process.env = (global as any).process.env || {};
+            (global as any).process.env.SSH2_NO_NATIVE = '1';
+            
+            this.sftpClient = new SftpClient('remote-file-browser');
+            console.log('[ConnectionManager] SFTP client created successfully');
+        } catch (clientError: any) {
+            console.error('[ConnectionManager] Failed to create SFTP client:', clientError);
+            throw new Error(`Failed to create SFTP client: ${clientError?.message || clientError}`);
+        }
+        
+        try {
+            // pure-js-sftp only accepts specific options per SSH2StreamsConfig interface
             const connectOptions: any = {
                 host: this.config.host,
                 port: this.config.port,
-                username: this.config.username,
-                timeout: connectionTimeout,
-                retries: 0, // We handle retries at a higher level now
-                keepaliveInterval: this.config.enableKeepAlive !== false ? 
-                    (this.config.keepAliveInterval || 30000) : 0,
-                debug: true // Enable debugging
+                username: this.config.username
             };
             
-            console.log('[ConnectionManager] SFTP config:', JSON.stringify({
-                ...connectOptions,
-                password: connectOptions.password ? '[REDACTED]' : undefined,
-                privateKey: connectOptions.privateKey ? `[REDACTED - Length: ${connectOptions.privateKey?.length || 0} chars]` : undefined,
-                passphrase: connectOptions.passphrase ? `[REDACTED - Length: ${connectOptions.passphrase?.length || 0} chars]` : undefined
-            }, null, 2));
-            
-            console.log('[ConnectionManager] Connection details:');
-            console.log(`  Host: ${this.config.host}`);
-            console.log(`  Port: ${this.config.port}`);
-            console.log(`  Username: ${this.config.username}`);
-            console.log(`  Auth type: ${this.config.authType}`);
-            console.log(`  Key path: ${this.config.keyPath || 'N/A'}`);
-            console.log(`  Has password: ${!!this.config.password}`);
-            console.log(`  Has passphrase: ${!!this.config.passphrase}`);
-
             if (this.config.authType?.toLowerCase() === 'key' && this.config.keyPath) {
                 // SSH key authentication
-                console.log('[ConnectionManager] Processing SSH key authentication...');
-                console.log(`  Key file path: ${this.config.keyPath}`);
-                console.log(`  File exists: ${fs.existsSync(this.config.keyPath)}`);
                 try {
-                    const keyData = fs.readFileSync(this.config.keyPath, 'utf8');
-                    console.log(`  Key data length: ${keyData.length} chars`);
-                    console.log(`  Key format: ${keyData.startsWith('PuTTY-User-Key-File-') ? 'PPK' : keyData.includes('-----BEGIN OPENSSH PRIVATE KEY-----') ? 'OpenSSH' : keyData.includes('-----BEGIN') ? 'PEM' : 'Unknown'}`);
+                    const privateKey = fs.readFileSync(this.config.keyPath);
                     
-                    // Check if it's a PuTTY .ppk file and convert it to OpenSSH format
-                    if (keyData.startsWith('PuTTY-User-Key-File-')) {
-                        console.log('PPK file detected, converting to OpenSSH format...');
-                        
+                    // Handle PPK files
+                    const keyString = privateKey.toString('utf8');
+                    if (keyString.startsWith('PuTTY-User-Key-File-')) {
                         try {
-                            // Use ppk-to-openssh to convert the PPK file (supports both v2 and v3)
-                            const result = await parseFromString(keyData, this.config.passphrase);
-                            
-                            // Use the converted OpenSSH private key
-                            connectOptions.privateKey = result.privateKey;
-                            
-                            console.log('PPK file successfully converted to OpenSSH format');
+                            const result = await parseFromString(keyString, this.config.passphrase);
+                            connectOptions.privateKey = Buffer.from(result.privateKey, 'utf8');
                         } catch (ppkError) {
                             const errorMessage = ppkError instanceof Error ? ppkError.message : String(ppkError);
                             
@@ -288,26 +269,19 @@ export class ConnectionManager {
                             throw new Error(`Failed to convert PPK file: ${errorMessage}`);
                         }
                     } else {
-                        // For standard OpenSSH/PEM keys, use raw key data
-                        console.log('[ConnectionManager] Using raw key data for OpenSSH/PEM format');
-                        connectOptions.privateKey = keyData;
-                        if (this.config.passphrase) {
-                            console.log(`[ConnectionManager] Adding passphrase (${this.config.passphrase.length} chars)`);
-                            connectOptions.passphrase = this.config.passphrase;
-                        } else {
-                            console.log('[ConnectionManager] No passphrase provided');
-                        }
+                        connectOptions.privateKey = privateKey;
+                    }
+                    
+                    if (this.config.passphrase) {
+                        connectOptions.passphrase = this.config.passphrase;
                     }
                 } catch (keyError) {
-                    // Enhanced error handling for key processing
                     const errorMessage = keyError instanceof Error ? keyError.message : String(keyError);
                     
-                    // Re-throw PPK-specific errors as-is since they're already well formatted
                     if (errorMessage.includes('PPK') || errorMessage.includes('passphrase') || errorMessage.includes('decrypt')) {
                         throw keyError;
                     }
                     
-                    // Handle other key file errors
                     if (errorMessage.includes('ENOENT')) {
                         throw new Error(`SSH key file not found: ${this.config.keyPath}`);
                     }
@@ -315,15 +289,79 @@ export class ConnectionManager {
                     throw new Error(`Failed to process SSH key from ${this.config.keyPath}: ${errorMessage}`);
                 }
             } else {
-                // Password authentication
-                console.log('[ConnectionManager] Using password authentication');
-                console.log(`  Has password: ${!!this.config.password}`);
                 connectOptions.password = this.config.password;
             }
-
-            console.log('[ConnectionManager] Calling pure-js-sftp connect...');
-            await this.sftpClient.connect(connectOptions);
-            console.log('[ConnectionManager] SFTP connection successful!');
+            
+            // Add crypto signing fix for webpack bundling issues
+            const ssh2streams = require('ssh2-streams');
+            if (ssh2streams.utils && ssh2streams.utils.parseKey) {
+                const originalParseKey = ssh2streams.utils.parseKey;
+                ssh2streams.utils.parseKey = function(keyData: any, passphrase: any) {
+                    const result = originalParseKey.call(this, keyData, passphrase);
+                    
+                    // Fix crypto signing for webpack bundled environment
+                    if (result?.[0]?.sign) {
+                        const originalSign = result[0].sign;
+                        const parsedKey = result[0];
+                        
+                        // Get PEM key for fallback crypto
+                        let pemKey = null;
+                        if (parsedKey.getPrivatePEM && typeof parsedKey.getPrivatePEM === 'function') {
+                            try {
+                                pemKey = parsedKey.getPrivatePEM();
+                            } catch (e) {}
+                        }
+                        
+                        result[0].sign = function(buf: any) {
+                            if (!buf || !Buffer.isBuffer(buf)) {
+                                throw new Error('Invalid buffer for signing');
+                            }
+                            
+                            // Try original signing first
+                            let signature = originalSign.call(this, buf);
+                            
+                            // If original signing fails (returns Error), use pure JS fallback
+                            if (signature instanceof Error && pemKey) {
+                                try {
+                                    const KJUR = require('jsrsasign');
+                                    const rsaKey = KJUR.KEYUTIL.getKey(pemKey);
+                                    const sig = new KJUR.KJUR.crypto.Signature({ alg: "SHA256withRSA" });
+                                    sig.init(rsaKey);
+                                    sig.updateHex(buf.toString('hex'));
+                                    const sigHex = sig.sign();
+                                    
+                                    // Just return the raw RSA signature - ssh2-streams will format it
+                                    signature = Buffer.from(sigHex, 'hex');
+                                } catch (jsRsaError) {
+                                    throw signature; // Throw original error
+                                }
+                            }
+                            
+                            if (signature instanceof Error) {
+                                throw signature;
+                            }
+                            
+                            return signature;
+                        };
+                    }
+                    
+                    return result;
+                };
+            }
+            
+            // Add error handling around the specific connect call
+            try {
+                await this.sftpClient.connect(connectOptions);
+                console.log('[ConnectionManager] SFTP connection successful!');
+            } catch (connectError: any) {
+                console.error('[ConnectionManager] Connect error details:', {
+                    message: connectError?.message,
+                    name: connectError?.name,
+                    code: connectError?.code,
+                    stack: connectError?.stack
+                });
+                throw connectError;
+            }
         } catch (error) {
             console.error('SFTP connection failed:', error);
             

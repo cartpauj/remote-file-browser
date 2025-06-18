@@ -388,8 +388,14 @@
 	},
 	"dependencies": {
 		"basic-ftp": "^5.0.5",
+		"buffer": "^6.0.3",
+		"jsrsasign": "^11.1.0",
 		"ppk-to-openssh": "^1.2.2",
-		"pure-js-sftp": "^1.0.6"
+		"pure-js-sftp": "^2.1.2",
+		"ssh2": "^1.16.0",
+		"ssh2-streams": "^0.4.10",
+		"stream-browserify": "^3.0.0",
+		"util": "^0.12.5"
 	},
 	"__metadata": {
 		"size": 89222892

@@ -1,3 +1,6 @@
+// Force pure JS environment for ssh2-streams
+process.env.SSH2_NO_NATIVE = '1';
+
 import * as vscode from 'vscode';
 import * as os from 'os';
 import * as path from 'path';
