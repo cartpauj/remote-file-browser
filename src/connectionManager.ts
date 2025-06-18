@@ -222,23 +222,217 @@ export class ConnectionManager {
     private async connectSftp(): Promise<void> {
         if (!this.config) throw new Error('No configuration provided');
 
-        console.log('[ConnectionManager] Starting SFTP connection...');
+        console.log('='.repeat(80));
+        console.log('[ConnectionManager] 🚀 STARTING SFTP CONNECTION WITH COMPREHENSIVE DEBUG');
+        console.log('='.repeat(80));
+        
+        // COMPREHENSIVE CREDENTIAL VALIDATION AND DEBUGGING
+        console.log('🔍'.repeat(60));
+        console.log('[ConnectionManager] 🔍 COMPREHENSIVE CREDENTIAL VALIDATION');
+        console.log('🔍'.repeat(60));
+        
+        // Validate and debug ALL connection parameters
+        console.log('[ConnectionManager] 📋 Raw Configuration Received:');
+        console.log(`  - protocol: "${this.config.protocol}"`);
+        console.log(`  - host: "${this.config.host}"`);
+        console.log(`  - port: ${this.config.port} (type: ${typeof this.config.port})`);
+        console.log(`  - username: "${this.config.username}"`);
+        console.log(`  - authType: "${this.config.authType}"`);
+        console.log(`  - keyPath: "${this.config.keyPath}"`);
+        console.log(`  - passphrase: ${this.config.passphrase ? `"${this.config.passphrase}" (${this.config.passphrase.length} chars)` : 'NONE'}`);
+        console.log(`  - password: ${this.config.password ? `"${this.config.password}" (${this.config.password.length} chars)` : 'NONE'}`);
+        console.log(`  - remotePath: "${this.config.remotePath}"`);
+        
+        // Validate required fields
+        const validationErrors: string[] = [];
+        
+        if (!this.config.host || this.config.host.trim() === '') {
+            validationErrors.push('Host is required and cannot be empty');
+        }
+        
+        if (!this.config.port || this.config.port <= 0 || this.config.port > 65535) {
+            validationErrors.push(`Port must be between 1-65535, got: ${this.config.port}`);
+        }
+        
+        if (!this.config.username || this.config.username.trim() === '') {
+            validationErrors.push('Username is required and cannot be empty');
+        }
+        
+        if (!this.config.authType || (this.config.authType !== 'key' && this.config.authType !== 'password')) {
+            validationErrors.push(`AuthType must be 'key' or 'password', got: "${this.config.authType}"`);
+        }
+        
+        if (this.config.authType === 'key') {
+            if (!this.config.keyPath || this.config.keyPath.trim() === '') {
+                validationErrors.push('Key path is required for key authentication');
+            } else {
+                // Check if key file exists and is readable
+                try {
+                    const keyStats = fs.statSync(this.config.keyPath);
+                    console.log(`[ConnectionManager] ✅ Key file validation:`);
+                    console.log(`  - File exists: YES`);
+                    console.log(`  - File size: ${keyStats.size} bytes`);
+                    console.log(`  - File mode: ${keyStats.mode.toString(8)}`);
+                    console.log(`  - Is file: ${keyStats.isFile()}`);
+                    console.log(`  - Modified: ${keyStats.mtime}`);
+                    
+                    // Test read permissions
+                    const testRead = fs.readFileSync(this.config.keyPath, { encoding: 'utf8', flag: 'r' });
+                    console.log(`  - Readable: YES (${testRead.length} chars)`);
+                    console.log(`  - Starts with: "${testRead.substring(0, 50)}..."`);
+                    
+                    // Detect key format
+                    if (testRead.startsWith('-----BEGIN')) {
+                        console.log(`  - Format: OpenSSH/PEM`);
+                        
+                        // Check if encrypted
+                        if (testRead.includes('ENCRYPTED')) {
+                            console.log(`  - Encryption: ENCRYPTED (requires passphrase)`);
+                            if (!this.config.passphrase) {
+                                validationErrors.push('Encrypted key requires a passphrase');
+                            }
+                        } else {
+                            console.log(`  - Encryption: NOT ENCRYPTED`);
+                        }
+                    } else if (testRead.startsWith('PuTTY-User-Key-File-')) {
+                        console.log(`  - Format: PPK (PuTTY format)`);
+                        if (testRead.includes('Encryption:') && !testRead.includes('Encryption: none')) {
+                            console.log(`  - Encryption: ENCRYPTED (requires passphrase)`);
+                            if (!this.config.passphrase) {
+                                validationErrors.push('Encrypted PPK key requires a passphrase');
+                            }
+                        } else {
+                            console.log(`  - Encryption: NOT ENCRYPTED`);
+                        }
+                    } else {
+                        console.log(`  - Format: UNKNOWN/UNSUPPORTED`);
+                        validationErrors.push('Key file format not recognized (should start with -----BEGIN or PuTTY-User-Key-File-)');
+                    }
+                    
+                } catch (keyError: any) {
+                    console.error(`[ConnectionManager] ❌ Key file validation failed:`, keyError.message);
+                    if (keyError.code === 'ENOENT') {
+                        validationErrors.push(`Key file not found: ${this.config.keyPath}`);
+                    } else if (keyError.code === 'EACCES') {
+                        validationErrors.push(`Permission denied reading key file: ${this.config.keyPath}`);
+                    } else {
+                        validationErrors.push(`Key file error: ${keyError.message}`);
+                    }
+                }
+            }
+        } else if (this.config.authType === 'password') {
+            if (!this.config.password || this.config.password.trim() === '') {
+                validationErrors.push('Password is required for password authentication');
+            }
+        }
+        
+        // Show validation results
+        if (validationErrors.length > 0) {
+            console.error('[ConnectionManager] ❌ VALIDATION ERRORS:');
+            validationErrors.forEach((error, index) => {
+                console.error(`  ${index + 1}. ${error}`);
+            });
+            throw new Error(`Configuration validation failed: ${validationErrors.join(', ')}`);
+        } else {
+            console.log('[ConnectionManager] ✅ All credentials validated successfully!');
+        }
+        
+        // Compare with working test credentials
+        console.log('\n🧪'.repeat(60));
+        console.log('[ConnectionManager] 🧪 COMPARING WITH KNOWN WORKING CREDENTIALS');
+        console.log('🧪'.repeat(60));
+        
+        const workingTestCreds = {
+            host: '142.93.27.188',
+            port: 2390,
+            username: 'cartpauj',
+            keyPath: '/home/cartpauj/cartpauj-github/remote-file-browser/test-credentials.pem',
+            passphrase: 'Head7Tail7Butt0'
+        };
+        
+        console.log('[ConnectionManager] 📊 Credential Comparison:');
+        console.log(`  Host: "${this.config.host}" vs "${workingTestCreds.host}" - ${this.config.host === workingTestCreds.host ? '✅ MATCH' : '❌ DIFFERENT'}`);
+        console.log(`  Port: ${this.config.port} vs ${workingTestCreds.port} - ${this.config.port === workingTestCreds.port ? '✅ MATCH' : '❌ DIFFERENT'}`);
+        console.log(`  Username: "${this.config.username}" vs "${workingTestCreds.username}" - ${this.config.username === workingTestCreds.username ? '✅ MATCH' : '❌ DIFFERENT'}`);
+        console.log(`  KeyPath: "${this.config.keyPath}" vs "${workingTestCreds.keyPath}" - ${this.config.keyPath === workingTestCreds.keyPath ? '✅ MATCH' : '❌ DIFFERENT'}`);
+        console.log(`  Passphrase: "${this.config.passphrase}" vs "${workingTestCreds.passphrase}" - ${this.config.passphrase === workingTestCreds.passphrase ? '✅ MATCH' : '❌ DIFFERENT'}`);
+        
+        // If any differences, highlight them
+        const differences: string[] = [];
+        if (this.config.host !== workingTestCreds.host) differences.push(`Host: got "${this.config.host}", expected "${workingTestCreds.host}"`);
+        if (this.config.port !== workingTestCreds.port) differences.push(`Port: got ${this.config.port}, expected ${workingTestCreds.port}`);
+        if (this.config.username !== workingTestCreds.username) differences.push(`Username: got "${this.config.username}", expected "${workingTestCreds.username}"`);
+        if (this.config.keyPath !== workingTestCreds.keyPath) differences.push(`KeyPath: got "${this.config.keyPath}", expected "${workingTestCreds.keyPath}"`);
+        if (this.config.passphrase !== workingTestCreds.passphrase) differences.push(`Passphrase: got "${this.config.passphrase}", expected "${workingTestCreds.passphrase}"`);
+        
+        if (differences.length > 0) {
+            console.log('\n⚠️ [ConnectionManager] CREDENTIAL DIFFERENCES DETECTED:');
+            differences.forEach((diff, index) => {
+                console.log(`  ${index + 1}. ${diff}`);
+            });
+            console.log('\n💡 [ConnectionManager] If connection fails, try using the working test credentials!');
+        } else {
+            console.log('\n✅ [ConnectionManager] ALL CREDENTIALS MATCH WORKING TEST - Connection should succeed!');
+        }
+        
+        // Debug environment
+        console.log('\n🔧'.repeat(60));
+        console.log('[ConnectionManager] 🔧 Environment Debug:');
+        console.log(`  - Node version: ${process.version}`);
+        console.log(`  - Platform: ${process.platform}`);
+        console.log(`  - Arch: ${process.arch}`);
+        console.log(`  - VSCode Extension Host: ${typeof process.versions.electron !== 'undefined'}`);
+        console.log(`  - Webpack bundled: ${typeof (global as any).__webpack_require__ !== 'undefined'}`);
+        
+        // Debug global state
+        console.log('[ConnectionManager] 🌍 Global State:');
+        console.log(`  - global.process exists: ${typeof (global as any).process !== 'undefined'}`);
+        console.log(`  - global.Buffer exists: ${typeof (global as any).Buffer !== 'undefined'}`);
+        
+        // Force pure JS mode and debug it
+        console.log('[ConnectionManager] 🔧 Setting Pure JS Mode:');
+        (global as any).process = (global as any).process || {};
+        (global as any).process.env = (global as any).process.env || {};
+        (global as any).process.env.SSH2_NO_NATIVE = '1';
+        console.log(`  - SSH2_NO_NATIVE set to: ${(global as any).process.env.SSH2_NO_NATIVE}`);
+        
+        // Apply crypto fix BEFORE creating client
+        console.log('[ConnectionManager] 🔐 Applying Crypto Fix...');
+        this.applyCryptoFix();
+        
+        // Debug module loading
+        console.log('[ConnectionManager] 📦 Module Loading Debug:');
+        try {
+            const SftpClient = require('pure-js-sftp').SftpClient || require('pure-js-sftp').default || require('pure-js-sftp');
+            console.log(`  - pure-js-sftp module loaded: ${typeof SftpClient}`);
+            console.log(`  - Constructor name: ${SftpClient.name}`);
+            console.log(`  - Constructor prototype: ${Object.getOwnPropertyNames(SftpClient.prototype)}`);
+        } catch (modError) {
+            console.error(`  - pure-js-sftp module error:`, modError);
+        }
         
         // Try to work around webpack bundling issues by dynamically creating the client
         try {
-            // Force pure JS mode before creating client
-            (global as any).process = (global as any).process || {};
-            (global as any).process.env = (global as any).process.env || {};
-            (global as any).process.env.SSH2_NO_NATIVE = '1';
-            
-            this.sftpClient = new SftpClient('remote-file-browser');
-            console.log('[ConnectionManager] SFTP client created successfully');
+            console.log('[ConnectionManager] 🏗️ Creating SFTP Client...');
+            this.sftpClient = new SftpClient('remote-file-browser-debug');
+            console.log('[ConnectionManager] ✅ SFTP client created successfully');
+            console.log(`  - Client type: ${typeof this.sftpClient}`);
+            console.log(`  - Client constructor: ${this.sftpClient.constructor.name}`);
+            console.log(`  - Client methods: ${Object.getOwnPropertyNames(Object.getPrototypeOf(this.sftpClient))}`);
         } catch (clientError: any) {
-            console.error('[ConnectionManager] Failed to create SFTP client:', clientError);
+            console.error('[ConnectionManager] ❌ Failed to create SFTP client:', clientError);
+            console.error(`  - Error type: ${typeof clientError}`);
+            console.error(`  - Error name: ${clientError?.name}`);
+            console.error(`  - Error message: ${clientError?.message}`);
+            console.error(`  - Error stack: ${clientError?.stack}`);
             throw new Error(`Failed to create SFTP client: ${clientError?.message || clientError}`);
         }
         
         try {
+            console.log('-'.repeat(60));
+            console.log('[ConnectionManager] 🔑 BUILDING CONNECTION OPTIONS');
+            console.log('-'.repeat(60));
+            
             // pure-js-sftp only accepts specific options per SSH2StreamsConfig interface
             const connectOptions: any = {
                 host: this.config.host,
@@ -246,18 +440,36 @@ export class ConnectionManager {
                 username: this.config.username
             };
             
+            console.log('[ConnectionManager] 📋 Basic Connection Options:');
+            console.log(`  - Host: ${connectOptions.host}`);
+            console.log(`  - Port: ${connectOptions.port}`);
+            console.log(`  - Username: ${connectOptions.username}`);
+            console.log(`  - Auth Type: ${this.config.authType}`);
+            
             if (this.config.authType?.toLowerCase() === 'key' && this.config.keyPath) {
+                console.log('[ConnectionManager] 🔐 SSH Key Authentication Mode');
+                console.log(`  - Key Path: ${this.config.keyPath}`);
+                console.log(`  - Has Passphrase: ${!!this.config.passphrase}`);
+                
                 // SSH key authentication
                 try {
+                    console.log('[ConnectionManager] 📖 Reading SSH Key File...');
                     const privateKey = fs.readFileSync(this.config.keyPath);
+                    console.log(`  - File size: ${privateKey.length} bytes`);
                     
                     // Handle PPK files
                     const keyString = privateKey.toString('utf8');
+                    console.log(`  - Key format detection: ${keyString.startsWith('PuTTY-User-Key-File-') ? 'PPK' : keyString.startsWith('-----BEGIN') ? 'OpenSSH/PEM' : 'Unknown'}`);
+                    console.log(`  - Key starts with: ${keyString.substring(0, 50)}...`);
+                    
                     if (keyString.startsWith('PuTTY-User-Key-File-')) {
+                        console.log('[ConnectionManager] 🔄 Converting PPK to OpenSSH format...');
                         try {
                             const result = await parseFromString(keyString, this.config.passphrase);
                             connectOptions.privateKey = Buffer.from(result.privateKey, 'utf8');
+                            console.log(`  - PPK conversion successful, new size: ${connectOptions.privateKey.length}`);
                         } catch (ppkError) {
+                            console.error('[ConnectionManager] ❌ PPK Conversion Failed:', ppkError);
                             const errorMessage = ppkError instanceof Error ? ppkError.message : String(ppkError);
                             
                             if (errorMessage.includes('passphrase') || errorMessage.includes('password') || errorMessage.includes('decrypt')) {
@@ -269,11 +481,100 @@ export class ConnectionManager {
                             throw new Error(`Failed to convert PPK file: ${errorMessage}`);
                         }
                     } else {
+                        console.log('[ConnectionManager] ✅ Using key as-is (OpenSSH/PEM format)');
                         connectOptions.privateKey = privateKey;
                     }
                     
                     if (this.config.passphrase) {
                         connectOptions.passphrase = this.config.passphrase;
+                        console.log(`  - Passphrase added: ${this.config.passphrase.length} characters`);
+                    }
+                    
+                    console.log('-'.repeat(40));
+                    console.log('[ConnectionManager] 🔍 MANUAL KEY PARSING TEST');
+                    console.log('-'.repeat(40));
+                    
+                    // Debug: Test key parsing manually to see what's happening
+                    try {
+                        const ssh2streams = require('ssh2-streams');
+                        console.log(`  - ssh2-streams loaded: ${typeof ssh2streams}`);
+                        console.log(`  - ssh2streams.utils exists: ${!!ssh2streams.utils}`);
+                        console.log(`  - parseKey function exists: ${!!ssh2streams.utils?.parseKey}`);
+                        
+                        if (ssh2streams.utils && ssh2streams.utils.parseKey) {
+                            console.log('[ConnectionManager] 🧪 Testing manual key parsing...');
+                            console.log(`  - Key buffer length: ${connectOptions.privateKey.length}`);
+                            console.log(`  - Key buffer type: ${connectOptions.privateKey.constructor.name}`);
+                            console.log(`  - Passphrase: ${connectOptions.passphrase ? `"${connectOptions.passphrase}"` : 'none'}`);
+                            
+                            const parsedKeys = ssh2streams.utils.parseKey(connectOptions.privateKey, connectOptions.passphrase);
+                            console.log(`  - Parse result type: ${typeof parsedKeys}`);
+                            console.log(`  - Parse result length: ${Array.isArray(parsedKeys) ? parsedKeys.length : 'not array'}`);
+                            
+                            if (parsedKeys && parsedKeys.length > 0) {
+                                const key = parsedKeys[0];
+                                console.log('[ConnectionManager] ✅ Manual parse SUCCESSFUL!');
+                                console.log(`  - Key type: ${key.type}`);
+                                console.log(`  - Key size: ${key.size}`);
+                                console.log(`  - Key comment: ${key.comment || 'none'}`);
+                                console.log(`  - Has sign function: ${typeof key.sign === 'function'}`);
+                                console.log(`  - Has getPublicSSH: ${typeof key.getPublicSSH === 'function'}`);
+                                console.log(`  - Has getPrivatePEM: ${typeof key.getPrivatePEM === 'function'}`);
+                                
+                                // Check if we can get the public key
+                                if (key.getPublicSSH) {
+                                    try {
+                                        const pubKey = key.getPublicSSH();
+                                        console.log(`  - Public key extracted: ${pubKey.length} bytes`);
+                                        console.log(`  - Public key base64 preview: ${pubKey.toString('base64').substring(0, 60)}...`);
+                                        
+                                        // Parse the SSH public key format
+                                        if (pubKey.length >= 4) {
+                                            const keyTypeLen = pubKey.readUInt32BE(0);
+                                            if (keyTypeLen > 0 && keyTypeLen < pubKey.length) {
+                                                const keyType = pubKey.slice(4, 4 + keyTypeLen).toString();
+                                                console.log(`  - SSH key type from public key: ${keyType}`);
+                                            }
+                                        }
+                                    } catch (pubError) {
+                                        console.error('[ConnectionManager] ❌ Public key extraction failed:', pubError);
+                                    }
+                                }
+                                
+                                // Test signing capability
+                                if (key.sign) {
+                                    try {
+                                        console.log('[ConnectionManager] 🧪 Testing signing function...');
+                                        const testData = Buffer.from('test-signing-data-12345');
+                                        console.log(`  - Test data: ${testData.length} bytes`);
+                                        
+                                        const signature = key.sign(testData);
+                                        console.log(`  - Signature result type: ${typeof signature}`);
+                                        console.log(`  - Signature is Error: ${signature instanceof Error}`);
+                                        
+                                        if (signature instanceof Error) {
+                                            console.error(`  - Signing error: ${signature.message}`);
+                                        } else if (Buffer.isBuffer(signature)) {
+                                            console.log(`  - Signature length: ${signature.length} bytes`);
+                                            console.log(`  - Signature preview: ${signature.toString('hex').substring(0, 40)}...`);
+                                        }
+                                    } catch (signError) {
+                                        console.error('[ConnectionManager] ❌ Signing test failed:', signError);
+                                    }
+                                }
+                            } else {
+                                console.error('[ConnectionManager] ❌ Manual key parse FAILED - no keys returned');
+                                console.log(`  - Returned value: ${JSON.stringify(parsedKeys)}`);
+                            }
+                        } else {
+                            console.error('[ConnectionManager] ❌ ssh2-streams.utils.parseKey not available');
+                        }
+                    } catch (manualParseError) {
+                        console.error('[ConnectionManager] ❌ Manual key parse ERROR:', manualParseError);
+                        console.error(`  - Error type: ${typeof manualParseError}`);
+                        console.error(`  - Error name: ${(manualParseError as any)?.name}`);
+                        console.error(`  - Error message: ${(manualParseError as any)?.message}`);
+                        console.error(`  - Error stack: ${(manualParseError as any)?.stack}`);
                     }
                 } catch (keyError) {
                     const errorMessage = keyError instanceof Error ? keyError.message : String(keyError);
@@ -289,77 +590,75 @@ export class ConnectionManager {
                     throw new Error(`Failed to process SSH key from ${this.config.keyPath}: ${errorMessage}`);
                 }
             } else {
+                console.log('[ConnectionManager] 🔑 Password Authentication Mode');
                 connectOptions.password = this.config.password;
+                console.log(`  - Password length: ${this.config.password?.length || 0} characters`);
             }
             
-            // Add crypto signing fix for webpack bundling issues
-            const ssh2streams = require('ssh2-streams');
-            if (ssh2streams.utils && ssh2streams.utils.parseKey) {
-                const originalParseKey = ssh2streams.utils.parseKey;
-                ssh2streams.utils.parseKey = function(keyData: any, passphrase: any) {
-                    const result = originalParseKey.call(this, keyData, passphrase);
-                    
-                    // Fix crypto signing for webpack bundled environment
-                    if (result?.[0]?.sign) {
-                        const originalSign = result[0].sign;
-                        const parsedKey = result[0];
-                        
-                        // Get PEM key for fallback crypto
-                        let pemKey = null;
-                        if (parsedKey.getPrivatePEM && typeof parsedKey.getPrivatePEM === 'function') {
-                            try {
-                                pemKey = parsedKey.getPrivatePEM();
-                            } catch (e) {}
-                        }
-                        
-                        result[0].sign = function(buf: any) {
-                            if (!buf || !Buffer.isBuffer(buf)) {
-                                throw new Error('Invalid buffer for signing');
-                            }
-                            
-                            // Try original signing first
-                            let signature = originalSign.call(this, buf);
-                            
-                            // If original signing fails (returns Error), use pure JS fallback
-                            if (signature instanceof Error && pemKey) {
-                                try {
-                                    const KJUR = require('jsrsasign');
-                                    const rsaKey = KJUR.KEYUTIL.getKey(pemKey);
-                                    const sig = new KJUR.KJUR.crypto.Signature({ alg: "SHA256withRSA" });
-                                    sig.init(rsaKey);
-                                    sig.updateHex(buf.toString('hex'));
-                                    const sigHex = sig.sign();
-                                    
-                                    // Just return the raw RSA signature - ssh2-streams will format it
-                                    signature = Buffer.from(sigHex, 'hex');
-                                } catch (jsRsaError) {
-                                    throw signature; // Throw original error
-                                }
-                            }
-                            
-                            if (signature instanceof Error) {
-                                throw signature;
-                            }
-                            
-                            return signature;
-                        };
-                    }
-                    
-                    return result;
-                };
-            }
+            console.log('-'.repeat(60));
+            console.log('[ConnectionManager] 🚀 INITIATING CONNECTION');
+            console.log('-'.repeat(60));
+            
+            console.log('[ConnectionManager] 📤 Final Connection Options:');
+            console.log(`  - Host: ${connectOptions.host}`);
+            console.log(`  - Port: ${connectOptions.port}`);
+            console.log(`  - Username: ${connectOptions.username}`);
+            console.log(`  - Has privateKey: ${!!connectOptions.privateKey}`);
+            console.log(`  - PrivateKey type: ${connectOptions.privateKey ? connectOptions.privateKey.constructor.name : 'none'}`);
+            console.log(`  - PrivateKey length: ${connectOptions.privateKey ? connectOptions.privateKey.length : 0} bytes`);
+            console.log(`  - Has passphrase: ${!!connectOptions.passphrase}`);
+            console.log(`  - Has password: ${!!connectOptions.password}`);
             
             // Add error handling around the specific connect call
             try {
+                console.log('[ConnectionManager] 🔌 Calling pure-js-sftp.connect()...');
+                console.log(`  - Client ready: ${!!this.sftpClient}`);
+                console.log(`  - Connect method exists: ${typeof this.sftpClient?.connect === 'function'}`);
+                
+                const connectStartTime = Date.now();
                 await this.sftpClient.connect(connectOptions);
-                console.log('[ConnectionManager] SFTP connection successful!');
+                const connectDuration = Date.now() - connectStartTime;
+                
+                console.log('='.repeat(80));
+                console.log('[ConnectionManager] 🎉 SFTP CONNECTION SUCCESSFUL!');
+                console.log(`  - Connection time: ${connectDuration}ms`);
+                console.log('='.repeat(80));
             } catch (connectError: any) {
-                console.error('[ConnectionManager] Connect error details:', {
-                    message: connectError?.message,
-                    name: connectError?.name,
-                    code: connectError?.code,
-                    stack: connectError?.stack
-                });
+                console.log('='.repeat(80));
+                console.error('[ConnectionManager] ❌ SFTP CONNECTION FAILED!');
+                console.log('='.repeat(80));
+                console.error('[ConnectionManager] 🔍 Connect Error Analysis:');
+                console.error(`  - Error type: ${typeof connectError}`);
+                console.error(`  - Error constructor: ${connectError?.constructor?.name}`);
+                console.error(`  - Error name: ${connectError?.name}`);
+                console.error(`  - Error message: "${connectError?.message}"`);
+                console.error(`  - Error code: ${connectError?.code}`);
+                console.error(`  - Error level: ${connectError?.level}`);
+                console.error(`  - Error errno: ${connectError?.errno}`);
+                console.error(`  - Error syscall: ${connectError?.syscall}`);
+                console.error(`  - Error address: ${connectError?.address}`);
+                console.error(`  - Error port: ${connectError?.port}`);
+                
+                if (connectError?.stack) {
+                    console.error('[ConnectionManager] 📚 Full Error Stack:');
+                    console.error(connectError.stack);
+                }
+                
+                // Try to identify specific error types
+                const errorMsg = connectError?.message?.toLowerCase() || '';
+                if (errorMsg.includes('authentication')) {
+                    console.error('[ConnectionManager] 🔐 AUTHENTICATION ERROR DETECTED');
+                    console.error('  - This suggests the SSH handshake completed but auth failed');
+                    console.error('  - Server may be rejecting our public key or signature');
+                } else if (errorMsg.includes('connection') || errorMsg.includes('connect')) {
+                    console.error('[ConnectionManager] 🌐 CONNECTION ERROR DETECTED');
+                    console.error('  - This suggests network-level connection issues');
+                } else if (errorMsg.includes('timeout')) {
+                    console.error('[ConnectionManager] ⏰ TIMEOUT ERROR DETECTED');
+                    console.error('  - Connection or operation timed out');
+                }
+                
+                console.log('='.repeat(80));
                 throw connectError;
             }
         } catch (error) {
@@ -1026,5 +1325,214 @@ export class ConnectionManager {
                 this.ftpConnectionLock = false;
             }
         }
+    }
+
+    private applyCryptoFix(): void {
+        console.log('💠'.repeat(40));
+        console.log('[ConnectionManager] 🔐 APPLYING COMPREHENSIVE CRYPTO FIX');
+        console.log('💠'.repeat(40));
+        
+        // Fix 1: Patch ssh2-streams utils.parseKey
+        try {
+            const ssh2streams = require('ssh2-streams');
+            console.log('[ConnectionManager] 📦 ssh2-streams module analysis:');
+            console.log(`  - Module type: ${typeof ssh2streams}`);
+            console.log(`  - Has utils: ${!!ssh2streams.utils}`);
+            console.log(`  - Utils type: ${typeof ssh2streams.utils}`);
+            console.log(`  - Has parseKey: ${!!ssh2streams.utils?.parseKey}`);
+            console.log(`  - parseKey type: ${typeof ssh2streams.utils?.parseKey}`);
+            
+            if (ssh2streams.utils && ssh2streams.utils.parseKey) {
+                console.log('[ConnectionManager] ✅ Patching ssh2-streams.utils.parseKey...');
+                const originalParseKey = ssh2streams.utils.parseKey;
+                console.log(`  - Original parseKey: ${typeof originalParseKey}`);
+                
+                ssh2streams.utils.parseKey = function(keyData: any, passphrase: any) {
+                    console.log('🔑'.repeat(40));
+                    console.log('[CRYPTO-FIX] 🎯 parseKey INTERCEPTED!');
+                    console.log('🔑'.repeat(40));
+                    console.log(`  - keyData type: ${typeof keyData}`);
+                    console.log(`  - keyData constructor: ${keyData?.constructor?.name}`);
+                    console.log(`  - keyData length: ${keyData?.length || 'unknown'}`);
+                    console.log(`  - passphrase type: ${typeof passphrase}`);
+                    console.log(`  - passphrase length: ${passphrase?.length || 0}`);
+                    
+                    const result = originalParseKey.call(this, keyData, passphrase);
+                    console.log(`  - Parse result type: ${typeof result}`);
+                    console.log(`  - Parse result is array: ${Array.isArray(result)}`);
+                    console.log(`  - Parse result length: ${result?.length || 0}`);
+                    
+                    if (result && result.length > 0) {
+                        console.log('[CRYPTO-FIX] ✅ Key parsed successfully!');
+                        for (let i = 0; i < result.length; i++) {
+                            const key = result[i];
+                            console.log(`  - Key ${i}: type=${key?.type}, size=${key?.size}, comment=${key?.comment || 'none'}`);
+                            console.log(`  - Key ${i}: sign=${typeof key?.sign}, getPublicSSH=${typeof key?.getPublicSSH}, getPrivatePEM=${typeof key?.getPrivatePEM}`);
+                        }
+                        
+                        // Fix crypto signing for webpack bundled environment
+                        if (result[0]?.sign) {
+                            console.log('[CRYPTO-FIX] 🔧 Patching sign function...');
+                            const originalSign = result[0].sign;
+                            const parsedKey = result[0];
+                            
+                            console.log(`  - Original sign function type: ${typeof originalSign}`);
+                            
+                            // Get PEM key for fallback crypto
+                            let pemKey = null;
+                            try {
+                                if (parsedKey.getPrivatePEM && typeof parsedKey.getPrivatePEM === 'function') {
+                                    pemKey = parsedKey.getPrivatePEM();
+                                    console.log('[CRYPTO-FIX] ✅ PEM private key extracted for fallback');
+                                    console.log(`  - PEM key length: ${pemKey?.length || 0}`);
+                                    console.log(`  - PEM starts with: ${pemKey?.substring(0, 50) || 'none'}...`);
+                                }
+                            } catch (e) {
+                                console.error('[CRYPTO-FIX] ❌ Failed to extract PEM key:', e);
+                            }
+                            
+                            result[0].sign = function(buf: any) {
+                                console.log('🖊️'.repeat(30));
+                                console.log('[CRYPTO-FIX] 🖊️ SIGN FUNCTION CALLED!');
+                                console.log('🖊️'.repeat(30));
+                                
+                                if (!buf || !Buffer.isBuffer(buf)) {
+                                    console.error('[CRYPTO-FIX] ❌ Invalid buffer for signing');
+                                    throw new Error('Invalid buffer for signing');
+                                }
+                                
+                                console.log(`  - Data to sign: ${buf.length} bytes`);
+                                console.log(`  - Data preview: ${buf.toString('hex').substring(0, 40)}...`);
+                                
+                                // Try original signing first
+                                console.log('[CRYPTO-FIX] 🧪 Trying original signing...');
+                                let signature = originalSign.call(this, buf);
+                                console.log(`  - Original result type: ${typeof signature}`);
+                                console.log(`  - Original is Error: ${signature instanceof Error}`);
+                                
+                                // Check if original signing failed
+                                if (signature instanceof Error) {
+                                    console.log('[CRYPTO-FIX] ⚠️ Original signing FAILED, trying jsrsasign fallback...');
+                                    console.log(`  - Original error: ${signature.message}`);
+                                    
+                                    if (pemKey) {
+                                        try {
+                                            console.log('[CRYPTO-FIX] 🔄 Using jsrsasign fallback...');
+                                            const KJUR = require('jsrsasign');
+                                            console.log(`  - KJUR loaded: ${typeof KJUR}`);
+                                            
+                                            const rsaKey = KJUR.KEYUTIL.getKey(pemKey);
+                                            console.log(`  - RSA key loaded: ${typeof rsaKey}`);
+                                            
+                                            const sig = new KJUR.KJUR.crypto.Signature({ alg: "SHA256withRSA" });
+                                            console.log(`  - Signature object created: ${typeof sig}`);
+                                            
+                                            sig.init(rsaKey);
+                                            console.log(`  - Signature initialized`);
+                                            
+                                            sig.updateHex(buf.toString('hex'));
+                                            console.log(`  - Data updated`);
+                                            
+                                            const sigHex = sig.sign();
+                                            console.log(`  - Signature generated: ${sigHex?.length || 0} hex chars`);
+                                            
+                                            // Convert to Buffer - return raw signature, ssh2-streams will format it
+                                            const rawRsaSignature = Buffer.from(sigHex, 'hex');
+                                            
+                                            console.log(`  - Raw RSA signature: ${rawRsaSignature.length} bytes`);
+                                            console.log(`  - Raw signature preview: ${rawRsaSignature.toString('hex').substring(0, 40)}...`);
+                                            
+                                            console.log('[CRYPTO-FIX] ✅ jsrsasign fallback SUCCEEDED! (returning raw signature for ssh2-streams to format)');
+                                            signature = rawRsaSignature;
+                                        } catch (jsRsaError) {
+                                            console.error('[CRYPTO-FIX] ❌ jsrsasign fallback FAILED:', jsRsaError);
+                                            console.error(`  - jsRsaError type: ${typeof jsRsaError}`);
+                                            console.error(`  - jsRsaError message: ${(jsRsaError as any)?.message}`);
+                                            throw signature; // Throw original error
+                                        }
+                                    } else {
+                                        console.error('[CRYPTO-FIX] ❌ No PEM key available for fallback');
+                                        throw signature;
+                                    }
+                                } else {
+                                    console.log('[CRYPTO-FIX] ✅ Original signing SUCCEEDED!');
+                                    console.log(`  - Signature type: ${typeof signature}`);
+                                    console.log(`  - Signature length: ${signature?.length || 0}`);
+                                    if (Buffer.isBuffer(signature)) {
+                                        console.log(`  - Signature preview: ${signature.toString('hex').substring(0, 40)}...`);
+                                    }
+                                }
+                                
+                                console.log('🖊️'.repeat(30));
+                                return signature;
+                            };
+                            
+                            console.log('[CRYPTO-FIX] ✅ Sign function patched successfully!');
+                        } else {
+                            console.log('[CRYPTO-FIX] ⚠️ No sign function found to patch');
+                        }
+                    } else {
+                        console.error('[CRYPTO-FIX] ❌ Key parsing FAILED - no result');
+                        console.log(`  - Result value: ${JSON.stringify(result)}`);
+                    }
+                    
+                    console.log('🔑'.repeat(40));
+                    return result;
+                };
+                
+                console.log('[ConnectionManager] ✅ ssh2-streams.utils.parseKey patched successfully!');
+            } else {
+                console.error('[ConnectionManager] ❌ ssh2-streams.utils.parseKey not available for patching');
+            }
+        } catch (ssh2Error) {
+            console.error('[ConnectionManager] ❌ Failed to patch ssh2-streams:', ssh2Error);
+        }
+        
+        // Fix 2: Also patch crypto.sign if available
+        console.log('[ConnectionManager] 🔧 Attempting to patch crypto.sign...');
+        try {
+            const crypto = require('crypto');
+            console.log(`  - crypto module loaded: ${typeof crypto}`);
+            console.log(`  - crypto.sign exists: ${!!crypto.sign}`);
+            console.log(`  - crypto.sign type: ${typeof crypto.sign}`);
+            
+            if (crypto && crypto.sign) {
+                console.log('[ConnectionManager] ✅ Patching crypto.sign...');
+                const originalCryptoSign = crypto.sign;
+                crypto.sign = function(algorithm: any, data: any, key: any) {
+                    console.log('⚡'.repeat(30));
+                    console.log('[CRYPTO-FIX] ⚡ crypto.sign CALLED!');
+                    console.log('⚡'.repeat(30));
+                    console.log(`  - Algorithm: ${algorithm}`);
+                    console.log(`  - Data type: ${typeof data}`);
+                    console.log(`  - Data length: ${data?.length || 0}`);
+                    console.log(`  - Key type: ${typeof key}`);
+                    
+                    try {
+                        const result = originalCryptoSign.call(this, algorithm, data, key);
+                        console.log('[CRYPTO-FIX] ✅ crypto.sign succeeded');
+                        console.log(`  - Result type: ${typeof result}`);
+                        console.log(`  - Result length: ${result?.length || 0}`);
+                        console.log('⚡'.repeat(30));
+                        return result;
+                    } catch (error) {
+                        console.error('[CRYPTO-FIX] ❌ crypto.sign failed:', error);
+                        console.error(`  - Error type: ${typeof error}`);
+                        console.error(`  - Error message: ${(error as any)?.message}`);
+                        console.log('⚡'.repeat(30));
+                        throw error;
+                    }
+                };
+                console.log('[ConnectionManager] ✅ crypto.sign patched successfully!');
+            } else {
+                console.log('[ConnectionManager] ⚠️ crypto.sign not available for patching');
+            }
+        } catch (cryptoError) {
+            console.error('[ConnectionManager] ❌ Failed to patch crypto.sign:', cryptoError);
+        }
+        
+        console.log('💠'.repeat(40));
+        console.log('[ConnectionManager] 🎉 CRYPTO FIX APPLICATION COMPLETE');
+        console.log('💠'.repeat(40));
     }
 }

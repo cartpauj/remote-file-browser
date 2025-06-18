@@ -246,19 +246,83 @@ async function connectDirect(connectionConfig: any) {
 }
 
 async function connectToSavedConnection(connectionIndex: number) {
+    console.log('🚀'.repeat(80));
+    console.log('[Extension] 🚀 CONNECTING TO SAVED CONNECTION WITH COMPREHENSIVE DEBUG');
+    console.log('🚀'.repeat(80));
+    
+    console.log(`[Extension] 📋 Connection request details:`);
+    console.log(`  - Connection index: ${connectionIndex}`);
+    console.log(`  - Index type: ${typeof connectionIndex}`);
+    
     const config = vscode.workspace.getConfiguration('remoteFileBrowser');
+    console.log(`[Extension] 📦 VSCode configuration loaded: ${!!config}`);
+    
     const connections = config.get<any[]>('connections', []);
+    console.log(`[Extension] 🔗 Raw connections from VSCode settings:`);
+    console.log(`  - Total connections: ${connections.length}`);
+    console.log(`  - Connections array type: ${typeof connections}`);
+    console.log(`  - Is array: ${Array.isArray(connections)}`);
+    
+    // Debug each connection
+    connections.forEach((conn, index) => {
+        console.log(`  - Connection ${index}:`);
+        console.log(`    * name: "${conn.name}"`);
+        console.log(`    * protocol: "${conn.protocol}"`);
+        console.log(`    * host: "${conn.host}"`);
+        console.log(`    * port: ${conn.port} (type: ${typeof conn.port})`);
+        console.log(`    * username: "${conn.username}"`);
+        console.log(`    * authType: "${conn.authType}"`);
+        console.log(`    * keyPath: "${conn.keyPath}"`);
+        console.log(`    * passphrase: ${conn.passphrase ? `"${conn.passphrase}" (${conn.passphrase.length} chars)` : 'NONE/EMPTY'}`);
+        console.log(`    * remotePath: "${conn.remotePath}"`);
+    });
     
     if (connectionIndex < 0 || connectionIndex >= connections.length) {
+        console.error(`[Extension] ❌ Invalid connection index: ${connectionIndex} (valid range: 0-${connections.length - 1})`);
         vscode.window.showErrorMessage('Invalid connection selected');
         return;
     }
 
     const connection = connections[connectionIndex];
+    console.log(`[Extension] ✅ Selected connection ${connectionIndex}:`);
+    console.log(`  - Full connection object:`, JSON.stringify(connection, null, 2));
     
     // Handle authentication for the connection
     let connectionConfig = { ...connection };
+    console.log(`[Extension] 📋 Initial connection config (copy):`);
+    console.log(`  - protocol: "${connectionConfig.protocol}"`);
+    console.log(`  - host: "${connectionConfig.host}"`);
+    console.log(`  - port: ${connectionConfig.port}`);
+    console.log(`  - username: "${connectionConfig.username}"`);
+    console.log(`  - authType: "${connectionConfig.authType}"`);
+    console.log(`  - keyPath: "${connectionConfig.keyPath}"`);
+    console.log(`  - passphrase: ${connectionConfig.passphrase ? `"${connectionConfig.passphrase}"` : 'NONE/EMPTY'}`);
+    console.log(`  - remotePath: "${connectionConfig.remotePath}"`);
+    
     const connectionId = CredentialManager.generateConnectionId(connection);
+    console.log(`[Extension] 🔑 Generated connection ID: "${connectionId}"`);
+    
+    // Compare with working test credentials
+    console.log('\n🧪'.repeat(60));
+    console.log('[Extension] 🧪 COMPARING WITH KNOWN WORKING CREDENTIALS');
+    console.log('🧪'.repeat(60));
+    
+    const workingTestCreds = {
+        host: '142.93.27.188',
+        port: 2390,
+        username: 'cartpauj',
+        keyPath: '/home/cartpauj/cartpauj-github/remote-file-browser/test-credentials.pem',
+        passphrase: 'Head7Tail7Butt0'
+    };
+    
+    console.log('[Extension] 📊 Credential Comparison:');
+    console.log(`  Host: "${connectionConfig.host}" vs "${workingTestCreds.host}" - ${connectionConfig.host === workingTestCreds.host ? '✅ MATCH' : '❌ DIFFERENT'}`);
+    console.log(`  Port: ${connectionConfig.port} vs ${workingTestCreds.port} - ${connectionConfig.port === workingTestCreds.port ? '✅ MATCH' : '❌ DIFFERENT'}`);
+    console.log(`  Username: "${connectionConfig.username}" vs "${workingTestCreds.username}" - ${connectionConfig.username === workingTestCreds.username ? '✅ MATCH' : '❌ DIFFERENT'}`);
+    console.log(`  KeyPath: "${connectionConfig.keyPath}" vs "${workingTestCreds.keyPath}" - ${connectionConfig.keyPath === workingTestCreds.keyPath ? '✅ MATCH' : '❌ DIFFERENT'}`);
+    console.log(`  Passphrase: "${connectionConfig.passphrase}" vs "${workingTestCreds.passphrase}" - ${connectionConfig.passphrase === workingTestCreds.passphrase ? '✅ MATCH' : '❌ DIFFERENT'}`);
+    
+    console.log('\n⚙️'.repeat(60));
 
     try {
 
@@ -320,6 +384,26 @@ async function connectToSavedConnection(connectionIndex: number) {
             
             connectionConfig.password = password;
         }
+
+        console.log('\n📤'.repeat(60));
+        console.log('[Extension] 📤 FINAL CONNECTION CONFIG BEFORE CALLING CONNECTION MANAGER');
+        console.log('📤'.repeat(60));
+        console.log(`[Extension] 🎯 Final connection config to be sent to ConnectionManager:`);
+        console.log(`  - protocol: "${connectionConfig.protocol}"`);
+        console.log(`  - host: "${connectionConfig.host}"`);
+        console.log(`  - port: ${connectionConfig.port} (type: ${typeof connectionConfig.port})`);
+        console.log(`  - username: "${connectionConfig.username}"`);
+        console.log(`  - authType: "${connectionConfig.authType}"`);
+        console.log(`  - keyPath: "${connectionConfig.keyPath}"`);
+        console.log(`  - passphrase: ${connectionConfig.passphrase ? `"${connectionConfig.passphrase}" (${connectionConfig.passphrase.length} chars)` : 'NONE/EMPTY'}`);
+        console.log(`  - password: ${connectionConfig.password ? `"${connectionConfig.password}" (${connectionConfig.password.length} chars)` : 'NONE/EMPTY'}`);
+        console.log(`  - remotePath: "${connectionConfig.remotePath}"`);
+        console.log(`  - Has timeout settings: ${!!connectionConfig.connectionTimeout}`);
+        console.log(`  - Full config object keys: [${Object.keys(connectionConfig).join(', ')}]`);
+        
+        console.log('\n🔥'.repeat(60));
+        console.log('[Extension] 🔥 CALLING CONNECTION MANAGER NOW...');
+        console.log('🔥'.repeat(60));
 
         await connectionManager.connect(connectionConfig);
         remoteFileProvider.resetToDefaultDirectory();
