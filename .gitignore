@@ -1,6 +1,7 @@
 # Compiled output
 out/
-*.js
+out/*.js
+out/*.js.map
 *.js.map
 
 # Dependencies
