@@ -39,18 +39,15 @@ export class RemoteFileProvider implements vscode.TreeDataProvider<RemoteFileIte
 
     navigateToParent(): void {
         if (!this.connectionManager.isConnected()) {
-            console.log('navigateToParent: not connected, exiting');
             return;
         }
 
         // Ensure currentDirectory is properly initialized
         if (!this.currentDirectory) {
             this.currentDirectory = this.connectionManager.getRemotePath();
-            console.log(`navigateToParent: initialized currentDirectory to ${this.currentDirectory}`);
         }
 
         const currentPath = this.currentDirectory;
-        console.log(`navigateToParent: currentDirectory=${this.currentDirectory}, currentPath=${currentPath}`);
         
         if (currentPath !== '/') {
             // Calculate parent path - handle trailing slashes properly
@@ -61,19 +58,15 @@ export class RemoteFileProvider implements vscode.TreeDataProvider<RemoteFileIte
             const lastSlashIndex = pathToProcess.lastIndexOf('/');
             const parentPath = lastSlashIndex <= 0 ? '/' : pathToProcess.substring(0, lastSlashIndex);
             
-            console.log(`navigateToParent: pathToProcess=${pathToProcess}, lastSlashIndex=${lastSlashIndex}, parentPath=${parentPath}`);
             
             if (parentPath !== currentPath) {
-                console.log(`navigateToParent: changing from ${currentPath} to ${parentPath}`);
                 this.currentDirectory = parentPath;
                 
                 // Clear the tree completely, then refresh
                 this._onDidChangeTreeData.fire(null);
             } else {
-                console.log(`navigateToParent: parentPath equals currentPath, no change needed`);
             }
         } else {
-            console.log(`navigateToParent: already at root directory`);
         }
     }
 
@@ -89,7 +82,6 @@ export class RemoteFileProvider implements vscode.TreeDataProvider<RemoteFileIte
         
         const currentPath = this.currentDirectory;
         const canNavigate = currentPath !== '/';
-        console.log(`canNavigateToParent: currentDirectory=${this.currentDirectory}, canNavigate=${canNavigate}`);
         return canNavigate;
     }
 
@@ -97,7 +89,6 @@ export class RemoteFileProvider implements vscode.TreeDataProvider<RemoteFileIte
         // Ensure currentDirectory is properly initialized
         if (!this.currentDirectory) {
             this.currentDirectory = this.connectionManager.getRemotePath();
-            console.log(`getCurrentDirectory: initialized currentDirectory to ${this.currentDirectory}`);
         }
         return this.currentDirectory;
     }
@@ -106,7 +97,6 @@ export class RemoteFileProvider implements vscode.TreeDataProvider<RemoteFileIte
         const previousPath = this.currentDirectory;
         const defaultPath = this.connectionManager.getRemotePath();
         this.currentDirectory = defaultPath;
-        console.log(`resetToDefaultDirectory: reset currentDirectory from ${previousPath} to ${defaultPath}`);
         
         // Fire change event to refresh the tree view
         this._onDidChangeTreeData.fire(null);
@@ -123,7 +113,6 @@ export class RemoteFileProvider implements vscode.TreeDataProvider<RemoteFileIte
 
         try {
             const path = element ? element.path : this.getCurrentDirectory();
-            console.log(`getChildren called - element: ${element?.path || 'ROOT'}, current path: ${path}`);
             const files = await this.connectionManager.listFiles(path);
             
             // Sort files: directories first (alphabetically), then files (alphabetically)

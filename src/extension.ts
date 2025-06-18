@@ -1,5 +1,3 @@
-// Force pure JS environment for ssh2-streams
-process.env.SSH2_NO_NATIVE = '1';
 
 import * as vscode from 'vscode';
 import * as os from 'os';
@@ -10,6 +8,7 @@ import { ConnectionManager } from './connectionManager';
 import { ConnectionManagerView } from './connectionManagerView';
 import { CredentialManager } from './credentialManager';
 import { WelcomeViewProvider } from './welcomeViewProvider';
+// import { enableSigningFix } from './ssh2StreamsSigningFix'; // DELETED - starting fresh
 
 let remoteFileProvider: RemoteFileProvider;
 let connectionManager: ConnectionManager;
@@ -37,6 +36,11 @@ function generateConnectionId(config: any): string {
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Remote File Browser extension is now active');
+
+
+    // Apply ssh2-streams signing fix (will be conditional based on auth type)
+    // enableSigningFix(); // DELETED - starting fresh
+
 
     connectionManager = new ConnectionManager();
     remoteFileProvider = new RemoteFileProvider(connectionManager);
@@ -70,6 +74,8 @@ export function activate(context: vscode.ExtensionContext) {
         treeDataProvider: welcomeViewProvider,
         showCollapseAll: false
     });
+
+    console.log('Remote File Browser extension: Views and commands registered successfully');
 
     // Register dynamic commands for each connection (up to 20 connections)
     for (let i = 0; i < 20; i++) {
@@ -246,83 +252,20 @@ async function connectDirect(connectionConfig: any) {
 }
 
 async function connectToSavedConnection(connectionIndex: number) {
-    console.log('🚀'.repeat(80));
-    console.log('[Extension] 🚀 CONNECTING TO SAVED CONNECTION WITH COMPREHENSIVE DEBUG');
-    console.log('🚀'.repeat(80));
-    
-    console.log(`[Extension] 📋 Connection request details:`);
-    console.log(`  - Connection index: ${connectionIndex}`);
-    console.log(`  - Index type: ${typeof connectionIndex}`);
+    console.log('[Extension] Connecting to saved connection...');
     
     const config = vscode.workspace.getConfiguration('remoteFileBrowser');
-    console.log(`[Extension] 📦 VSCode configuration loaded: ${!!config}`);
-    
     const connections = config.get<any[]>('connections', []);
-    console.log(`[Extension] 🔗 Raw connections from VSCode settings:`);
-    console.log(`  - Total connections: ${connections.length}`);
-    console.log(`  - Connections array type: ${typeof connections}`);
-    console.log(`  - Is array: ${Array.isArray(connections)}`);
-    
-    // Debug each connection
-    connections.forEach((conn, index) => {
-        console.log(`  - Connection ${index}:`);
-        console.log(`    * name: "${conn.name}"`);
-        console.log(`    * protocol: "${conn.protocol}"`);
-        console.log(`    * host: "${conn.host}"`);
-        console.log(`    * port: ${conn.port} (type: ${typeof conn.port})`);
-        console.log(`    * username: "${conn.username}"`);
-        console.log(`    * authType: "${conn.authType}"`);
-        console.log(`    * keyPath: "${conn.keyPath}"`);
-        console.log(`    * passphrase: ${conn.passphrase ? `"${conn.passphrase}" (${conn.passphrase.length} chars)` : 'NONE/EMPTY'}`);
-        console.log(`    * remotePath: "${conn.remotePath}"`);
-    });
     
     if (connectionIndex < 0 || connectionIndex >= connections.length) {
-        console.error(`[Extension] ❌ Invalid connection index: ${connectionIndex} (valid range: 0-${connections.length - 1})`);
+        console.error(`[Extension] Invalid connection index: ${connectionIndex}`);
         vscode.window.showErrorMessage('Invalid connection selected');
         return;
     }
 
     const connection = connections[connectionIndex];
-    console.log(`[Extension] ✅ Selected connection ${connectionIndex}:`);
-    console.log(`  - Full connection object:`, JSON.stringify(connection, null, 2));
-    
-    // Handle authentication for the connection
     let connectionConfig = { ...connection };
-    console.log(`[Extension] 📋 Initial connection config (copy):`);
-    console.log(`  - protocol: "${connectionConfig.protocol}"`);
-    console.log(`  - host: "${connectionConfig.host}"`);
-    console.log(`  - port: ${connectionConfig.port}`);
-    console.log(`  - username: "${connectionConfig.username}"`);
-    console.log(`  - authType: "${connectionConfig.authType}"`);
-    console.log(`  - keyPath: "${connectionConfig.keyPath}"`);
-    console.log(`  - passphrase: ${connectionConfig.passphrase ? `"${connectionConfig.passphrase}"` : 'NONE/EMPTY'}`);
-    console.log(`  - remotePath: "${connectionConfig.remotePath}"`);
-    
     const connectionId = CredentialManager.generateConnectionId(connection);
-    console.log(`[Extension] 🔑 Generated connection ID: "${connectionId}"`);
-    
-    // Compare with working test credentials
-    console.log('\n🧪'.repeat(60));
-    console.log('[Extension] 🧪 COMPARING WITH KNOWN WORKING CREDENTIALS');
-    console.log('🧪'.repeat(60));
-    
-    const workingTestCreds = {
-        host: '142.93.27.188',
-        port: 2390,
-        username: 'cartpauj',
-        keyPath: '/home/cartpauj/cartpauj-github/remote-file-browser/test-credentials.pem',
-        passphrase: 'Head7Tail7Butt0'
-    };
-    
-    console.log('[Extension] 📊 Credential Comparison:');
-    console.log(`  Host: "${connectionConfig.host}" vs "${workingTestCreds.host}" - ${connectionConfig.host === workingTestCreds.host ? '✅ MATCH' : '❌ DIFFERENT'}`);
-    console.log(`  Port: ${connectionConfig.port} vs ${workingTestCreds.port} - ${connectionConfig.port === workingTestCreds.port ? '✅ MATCH' : '❌ DIFFERENT'}`);
-    console.log(`  Username: "${connectionConfig.username}" vs "${workingTestCreds.username}" - ${connectionConfig.username === workingTestCreds.username ? '✅ MATCH' : '❌ DIFFERENT'}`);
-    console.log(`  KeyPath: "${connectionConfig.keyPath}" vs "${workingTestCreds.keyPath}" - ${connectionConfig.keyPath === workingTestCreds.keyPath ? '✅ MATCH' : '❌ DIFFERENT'}`);
-    console.log(`  Passphrase: "${connectionConfig.passphrase}" vs "${workingTestCreds.passphrase}" - ${connectionConfig.passphrase === workingTestCreds.passphrase ? '✅ MATCH' : '❌ DIFFERENT'}`);
-    
-    console.log('\n⚙️'.repeat(60));
 
     try {
 
@@ -385,26 +328,7 @@ async function connectToSavedConnection(connectionIndex: number) {
             connectionConfig.password = password;
         }
 
-        console.log('\n📤'.repeat(60));
-        console.log('[Extension] 📤 FINAL CONNECTION CONFIG BEFORE CALLING CONNECTION MANAGER');
-        console.log('📤'.repeat(60));
-        console.log(`[Extension] 🎯 Final connection config to be sent to ConnectionManager:`);
-        console.log(`  - protocol: "${connectionConfig.protocol}"`);
-        console.log(`  - host: "${connectionConfig.host}"`);
-        console.log(`  - port: ${connectionConfig.port} (type: ${typeof connectionConfig.port})`);
-        console.log(`  - username: "${connectionConfig.username}"`);
-        console.log(`  - authType: "${connectionConfig.authType}"`);
-        console.log(`  - keyPath: "${connectionConfig.keyPath}"`);
-        console.log(`  - passphrase: ${connectionConfig.passphrase ? `"${connectionConfig.passphrase}" (${connectionConfig.passphrase.length} chars)` : 'NONE/EMPTY'}`);
-        console.log(`  - password: ${connectionConfig.password ? `"${connectionConfig.password}" (${connectionConfig.password.length} chars)` : 'NONE/EMPTY'}`);
-        console.log(`  - remotePath: "${connectionConfig.remotePath}"`);
-        console.log(`  - Has timeout settings: ${!!connectionConfig.connectionTimeout}`);
-        console.log(`  - Full config object keys: [${Object.keys(connectionConfig).join(', ')}]`);
-        
-        console.log('\n🔥'.repeat(60));
-        console.log('[Extension] 🔥 CALLING CONNECTION MANAGER NOW...');
-        console.log('🔥'.repeat(60));
-
+        console.log('[Extension] Connecting...');
         await connectionManager.connect(connectionConfig);
         remoteFileProvider.resetToDefaultDirectory();
         await vscode.commands.executeCommand('setContext', 'remoteFileBrowser.connected', true);
@@ -1246,7 +1170,6 @@ async function updateTempFileLocation(oldPath: string, newPath: string): Promise
                     // Update editor tab if the file is currently open
                     await updateEditorTab(oldTempUri, newTempUri, newPath);
                     
-                    console.log(`Updated temp file location: ${oldTempPath} -> ${newTempPath}`);
                 } catch (statError) {
                     // Temp file doesn't exist, just update the watcher info
                     global.remoteFileWatchers.delete(tempUri);
@@ -1306,7 +1229,6 @@ async function updateEditorTab(oldTempUri: vscode.Uri, newTempUri: vscode.Uri, n
                     `Editor tab updated: "${fileName}" now points to ${newRemotePath}`
                 );
                 
-                console.log(`Updated editor tab: ${oldTempUri.fsPath} -> ${newTempUri.fsPath}`);
             }
         }
     } catch (error) {
