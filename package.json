@@ -385,7 +385,7 @@
 	},
 	"dependencies": {
 		"basic-ftp": "^5.0.5",
-		"ppk-to-openssh": "^1.2.3",
+		"ppk-to-openssh": "^1.3.0",
 		"pure-js-sftp": "^2.1.3"
 	}
 }

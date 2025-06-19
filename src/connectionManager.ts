@@ -292,13 +292,31 @@ export class ConnectionManager {
             let connectOptions: any;
             
             if (this.config.authType?.toLowerCase() === 'key' && this.config.keyPath) {
-                // Enable SSH2 signing fix for key authentication only
+                // Enable SSH2 signing fix for key authentication (needed for PEM keys)
                 const { enableSigningFix } = require('./ssh2StreamsSigningFix');
                 enableSigningFix();
                 
                 // SSH Key authentication
                 try {
-                    const privateKeyContent = fs.readFileSync(this.config.keyPath, 'utf8');
+                    let privateKeyContent = fs.readFileSync(this.config.keyPath, 'utf8');
+                    
+                    // Check if this is a PPK file by content (not extension)
+                    if (privateKeyContent.startsWith('PuTTY-User-Key-File-')) {
+                        console.log('PPK file detected, converting to OpenSSH format...');
+                        
+                        const { PPKParser } = require('ppk-to-openssh');
+                        const parser = new PPKParser({
+                            outputFormat: 'openssh'  // Use OpenSSH format for better compatibility
+                        });
+                        
+                        try {
+                            const result = await parser.parse(privateKeyContent, this.config.passphrase || '');
+                            privateKeyContent = result.privateKey;
+                            console.log('PPK successfully converted to OpenSSH format');
+                        } catch (ppkError: any) {
+                            throw new Error(`PPK conversion failed: ${ppkError.message}`);
+                        }
+                    }
                     
                     connectOptions = {
                         host: this.config.host,
