@@ -302,25 +302,13 @@ export class ConnectionManager {
                     
                     // Check if this is a PPK file by content (not extension)
                     if (privateKeyContent.startsWith('PuTTY-User-Key-File-')) {
-                        console.log(`PPK file detected, converting to OpenSSH format...`);
-                        console.log(`[DEBUG] *** VSIX UPDATE TEST v3.1.1 - NEW BUILD TIMESTAMP: ${new Date().toISOString()} ***`);
-                        console.log(`[DEBUG] Key file path: ${this.config.keyPath}`);
+                        console.log('PPK file detected, converting to OpenSSH format...');
                         
                         const { parseFromString } = require('ppk-to-openssh');
-                        
-                        // Debug: Check ppk-to-openssh version
-                        console.log('[DEBUG] ppk-to-openssh version check...');
-                        try {
-                            const pkg = require('ppk-to-openssh/package.json');
-                            console.log(`[DEBUG] ppk-to-openssh version: ${pkg.version}`);
-                        } catch (e) {
-                            console.log('[DEBUG] Could not determine ppk-to-openssh version');
-                        }
                         
                         // Determine if we should encrypt the output based on whether a passphrase is provided
                         // This ensures encrypted PPK files become encrypted OpenSSH keys for ssh2-streams compatibility
                         const shouldEncrypt = !!(this.config.passphrase && this.config.passphrase.trim() !== '');
-                        console.log(`[DEBUG] shouldEncrypt: ${shouldEncrypt}, passphrase length: ${this.config.passphrase?.length || 0}`);
                         
                         try {
                             // v3.1.1 API: Use wrapper function with options as 3rd parameter
@@ -329,64 +317,10 @@ export class ConnectionManager {
                                 outputPassphrase: this.config.passphrase  // Use same passphrase for output encryption
                             } : {};
                             
-                            console.log(`[DEBUG] Parse options:`, JSON.stringify(parseOptions, null, 2));
-                            console.log(`[DEBUG] Original key length: ${privateKeyContent.length}`);
-                            console.log(`[DEBUG] Original key starts with: ${privateKeyContent.substring(0, 50)}...`);
-                            
                             const result = await parseFromString(privateKeyContent, this.config.passphrase || '', parseOptions);
-                            
-                            console.log(`[DEBUG] Converted key length: ${result.privateKey.length}`);
-                            console.log(`[DEBUG] Converted key starts with: ${result.privateKey.substring(0, 50)}...`);
-                            console.log(`[DEBUG] Key ends with: ...${result.privateKey.substring(result.privateKey.length - 50)}`);
-                            
-                            // Check if the key looks encrypted by examining the header
-                            const lines = result.privateKey.split('\n');
-                            const headerLine = lines[0];
-                            console.log(`[DEBUG] Key header: ${headerLine}`);
-                            
-                            // Look for encryption indicators in the key
-                            const hasEncryptionHeader = result.privateKey.includes('Proc-Type: 4,ENCRYPTED') || 
-                                                      result.privateKey.includes('DEK-Info:');
-                            console.log(`[DEBUG] Has traditional PEM encryption headers: ${hasEncryptionHeader}`);
-                            
-                            // Check for OpenSSH encryption by examining the binary content
-                            const base64Content = result.privateKey.split('\n').slice(1, -2).join('');
-                            try {
-                                const binaryData = Buffer.from(base64Content, 'base64');
-                                console.log(`[DEBUG] Binary data length: ${binaryData.length}`);
-                                
-                                // Check OpenSSH key structure for encryption
-                                if (binaryData.length > 50) {
-                                    const magic = binaryData.slice(0, 15).toString();
-                                    console.log(`[DEBUG] Magic header: "${magic}"`);
-                                    
-                                    // Read cipher name from position 15
-                                    if (binaryData.length > 30) {
-                                        const cipherNameLength = binaryData.readUInt32BE(15);
-                                        if (cipherNameLength < 100 && binaryData.length > 19 + cipherNameLength) {
-                                            const cipherName = binaryData.slice(19, 19 + cipherNameLength).toString();
-                                            console.log(`[DEBUG] RAW ppk-to-openssh cipher: "${cipherName}"`);
-                                            
-                                            // Read KDF name
-                                            const kdfStartPos = 19 + cipherNameLength;
-                                            if (binaryData.length > kdfStartPos + 4) {
-                                                const kdfNameLength = binaryData.readUInt32BE(kdfStartPos);
-                                                if (kdfNameLength < 100 && binaryData.length > kdfStartPos + 4 + kdfNameLength) {
-                                                    const kdfName = binaryData.slice(kdfStartPos + 4, kdfStartPos + 4 + kdfNameLength).toString();
-                                                    console.log(`[DEBUG] RAW ppk-to-openssh KDF: "${kdfName}"`);
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            } catch (e: any) {
-                                console.log(`[DEBUG] Could not parse binary key structure: ${e.message}`);
-                            }
-                            
                             privateKeyContent = result.privateKey;
                             console.log(`PPK successfully converted to OpenSSH format (encrypted: ${shouldEncrypt})`);
                         } catch (ppkError: any) {
-                            console.error(`[DEBUG] PPK conversion error:`, ppkError);
                             throw new Error(`PPK conversion failed: ${ppkError.message}`);
                         }
                     }
