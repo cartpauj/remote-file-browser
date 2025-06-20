@@ -8,7 +8,7 @@ Edit remote files seamlessly in VSCode/Cursor with instant access and automatic 
 
 🔄 **Auto-Sync on Save** - Changes automatically upload to your server when you hit `Ctrl+S` / `Cmd+S`
 
-🔐 **Secure Authentication** - Full support for SSH keys (OpenSSH & PuTTY), password auth, and secure credential storage
+🔐 **Secure Authentication** - Full support for SSH keys (OpenSSH & PuTTY PPK v2/v3), password auth, and secure credential storage
 
 📁 **Complete File Management** - Rename, move, copy, and delete files/directories directly on the remote server
 
@@ -288,7 +288,8 @@ Access these via `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (Mac):
 - **Remote File Browser: Connect to Remote Server** - Manual connection setup
 - **Remote File Browser: Connect from Saved Configuration** - Quick picker for all connections
 - **Remote File Browser: Manage Connections** - Open connection manager
-- **Remote File Browser: Clean Up Temporary Files** - Delete temp files
+- **Remote File Browser: Clean Up Connection Temp Files** - Delete temp files for current connection only
+- **Remote File Browser: Clean Up All Temp Files** - Delete temp files for all connections
 - **Remote File Browser: Disconnect from Remote Server** - Close current connection
 - **Remote File Browser: Refresh** - Reload remote file tree
 - **Remote File Browser: Push to Remote** - Upload current local file to selected remote directory
@@ -319,7 +320,7 @@ Example configuration:
       "remotePath": "/var/www",
       "authType": "key",
       "keyPath": "/home/user/.ssh/id_rsa",
-      "connectionTimeout": 25000,
+      "connectionTimeout": 20000,
       "operationTimeout": 90000,
       "maxRetries": 5,
       "enableKeepAlive": true
@@ -329,7 +330,7 @@ Example configuration:
 ```
 
 **Note**: All advanced timeout and retry parameters are optional. If not specified, sensible defaults are used:
-- Connection timeouts: 30s (both SFTP and FTP)
+- Connection timeouts: 20s (SFTP), 30s (FTP)
 - Operation timeout: 60s
 - Max retries: 3 attempts with exponential backoff
 - Keep-alive: Enabled with 30s intervals
@@ -375,17 +376,28 @@ When you open remote files, they're downloaded to your local system in an organi
 4. Use standard shell commands to explore: `ls -la`, `cd`, `cat`, etc.
 
 ### Cleaning Up Temp Files
-**Warning**: This will delete all temporary files and break sync for any open files.
 
-1. **Via Connection Manager**:
-   - Click **"🗑️ Clean Up Temp Files"** in the connection manager
+#### Clean Up Current Connection Files
+**Warning**: This will delete temporary files for the current connection and break sync for any open files from this server.
+
+1. **Via Navigation Bar** (when connected):
+   - Click the trash icon (🗑️) next to refresh and disconnect
+   - This runs "Clean Up Connection Temp Files"
 
 2. **Via Command Palette**:
    - Press `Ctrl+Shift+P` / `Cmd+Shift+P`
-   - Type "Clean Up Temporary Files" and select it
+   - Type "Clean Up Connection Temp Files" and select it
 
-3. **Via Navigation Bar** (when connected):
-   - Click the trash icon (🗑️) next to refresh and disconnect
+#### Clean Up All Connection Files
+**Warning**: This will delete ALL temporary files from ALL connections and break sync for any open files.
+
+1. **Via Connection Manager**:
+   - Click **"🗑️ Clean Up Temp Files"** in the connection manager
+   - This runs "Clean Up All Temp Files"
+
+2. **Via Command Palette**:
+   - Press `Ctrl+Shift+P` / `Cmd+Shift+P`
+   - Type "Clean Up All Temp Files" and select it
 
 ### What Cleanup Does
 - Deletes the entire `/tmp/remote-file-browser/` directory
@@ -431,7 +443,7 @@ If you see "keyring couldn't be identified":
 ### Known Issues
 - **Same Server Conflicts**: Multiple windows connecting to the same server share temp file storage, which can cause file conflicts
 - **Data Loss Risk**: If two windows edit the same remote file, whichever saves last will overwrite the other's changes
-- **Sync Disruption**: Running "Clean Up Temp Files" in one window stops file synchronization in ALL windows
+- **Sync Disruption**: Running "Clean Up All Temp Files" in one window stops file synchronization in ALL windows; "Clean Up Connection Temp Files" only affects the current connection
 
 ### How to Avoid Problems
 ✅ **Safe Usage Patterns**:
@@ -446,7 +458,7 @@ If you see "keyring couldn't be identified":
 
 ### If You Must Use Multiple Windows
 1. **Coordinate file access** - Don't edit the same files simultaneously
-2. **Avoid cleanup operations** - Don't run "Clean Up Temp Files" while other windows are active
+2. **Avoid cleanup operations** - Don't run "Clean Up All Temp Files" while other windows are active
 3. **Save frequently** - Minimize time between edits to reduce conflict windows
 4. **Check for conflicts** - If sync stops working, disconnect and reconnect
 

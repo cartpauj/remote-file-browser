@@ -5,6 +5,34 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2025-01-20
+
+### Major Code Cleanup & Modernization
+- **BREAKING**: Removed legacy ssh2StreamsSigningFix workaround - now uses pure-js-sftp 4.0.1's native ssh2-streams integration
+- **Performance**: Eliminated all debug logging throughout the codebase for cleaner production experience
+- **Dependencies**: Updated to pure-js-sftp 4.0.1 with modern SSH key handling
+- **Code Quality**: Removed unused imports and dead code throughout the project
+- **Architecture**: Simplified codebase by removing obsolete workarounds and patches
+
+### Documentation
+- **README**: Complete 100% accuracy review and update of all documentation
+- **Timeouts**: Fixed connection timeout documentation (20s SFTP, 30s FTP)
+- **Commands**: Clarified difference between "Clean Up Connection Temp Files" vs "Clean Up All Temp Files"
+- **Security**: Updated SSH key format support documentation (OpenSSH & PuTTY PPK v2/v3)
+- **Examples**: Corrected all configuration examples to match actual implementation
+
+### Removed
+- **ssh2StreamsSigningFix.ts**: Obsolete workaround file completely removed
+- **Unused imports**: Removed `Writable` from stream imports and other unused dependencies
+- **Unused commands**: Removed `connectFromWelcomeDebounced` command definition
+- **Debug logging**: All console.log/debug/warn/error statements removed from production code
+
+### Technical Improvements
+- **Pure SSH Implementation**: Now relies entirely on pure-js-sftp 4.0.1's native ssh2-streams SSH capabilities
+- **Cleaner Dependencies**: Eliminated unnecessary polyfills and workarounds
+- **Better Performance**: Reduced bundle size and memory footprint
+- **Maintainability**: Simplified architecture with modern dependency management
+
 ## [2.5.6] - 2025-01-06
 
 ### Fixed

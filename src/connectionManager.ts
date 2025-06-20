@@ -1,7 +1,7 @@
 import SftpClient from 'pure-js-sftp';
 import { Client as FtpClient } from 'basic-ftp';
 import * as fs from 'fs';
-import { Readable, Writable, PassThrough } from 'stream';
+import { Readable, PassThrough } from 'stream';
 
 export interface ConnectionConfig {
     protocol: 'sftp' | 'ftp';
@@ -101,7 +101,6 @@ export class ConnectionManager {
                 
                 // Exponential backoff: delay = baseDelay * 2^attempt (capped at 10 seconds)
                 const delay = Math.min(baseDelay * Math.pow(2, attempt), 10000);
-                console.log(`Connection attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
                 await new Promise(resolve => setTimeout(resolve, delay));
             }
         }
@@ -152,7 +151,6 @@ export class ConnectionManager {
             }
         } catch (error) {
             if (this.isConnectionError(error)) {
-                console.log('Connection lost, attempting to reconnect...');
                 await this.reconnect();
                 // Retry the operation after reconnecting
                 if (this.config.protocol === 'sftp') {
@@ -178,7 +176,6 @@ export class ConnectionManager {
             }
         } catch (error) {
             if (this.isConnectionError(error)) {
-                console.log('Connection lost while reading file, attempting to reconnect...');
                 await this.reconnect();
                 // Retry the operation after reconnecting
                 if (this.config.protocol === 'sftp') {
@@ -204,7 +201,6 @@ export class ConnectionManager {
             }
         } catch (error) {
             if (this.isConnectionError(error)) {
-                console.log('Connection lost while writing file, attempting to reconnect...');
                 await this.reconnect();
                 // Retry the operation after reconnecting
                 if (this.config.protocol === 'sftp') {
@@ -292,9 +288,7 @@ export class ConnectionManager {
             let connectOptions: any;
             
             if (this.config.authType?.toLowerCase() === 'key' && this.config.keyPath) {
-                // Enable SSH2 signing fix for key authentication (needed for PEM keys)
-                const { enableSigningFix } = require('./ssh2StreamsSigningFix');
-                enableSigningFix();
+                // pure-js-sftp 4.0.1+ uses ssh2-streams for proper SSH key handling
                 
                 // SSH Key authentication
                 try {
@@ -302,24 +296,27 @@ export class ConnectionManager {
                     
                     // Check if this is a PPK file by content (not extension)
                     if (privateKeyContent.startsWith('PuTTY-User-Key-File-')) {
-                        console.log('PPK file detected, converting to OpenSSH format...');
                         
-                        const { parseFromString } = require('ppk-to-openssh');
+                        const { PPKParser } = require('ppk-to-openssh');
                         
-                        // Determine if we should encrypt the output based on whether a passphrase is provided
-                        // This ensures encrypted PPK files become encrypted OpenSSH keys for ssh2-streams compatibility
+                        // Use traditional PEM format for maximum compatibility with pure-js-sftp
+                        // PEM format remains the most reliable option
                         const shouldEncrypt = !!(this.config.passphrase && this.config.passphrase.trim() !== '');
                         
                         try {
-                            // v3.1.1 API: Use wrapper function with options as 3rd parameter
-                            const parseOptions = shouldEncrypt ? {
-                                encrypt: true,
-                                outputPassphrase: this.config.passphrase  // Use same passphrase for output encryption
-                            } : {};
+                            // Create parser with PEM output format and optional encryption
+                            const parserOptions: any = {
+                                outputFormat: 'pem'  // Use traditional PEM format for reliability
+                            };
                             
-                            const result = await parseFromString(privateKeyContent, this.config.passphrase || '', parseOptions);
+                            if (shouldEncrypt) {
+                                parserOptions.outputPassphrase = this.config.passphrase;
+                            }
+                            
+                            const parser = new PPKParser(parserOptions);
+                            const result = await parser.parse(privateKeyContent, this.config.passphrase || '');
                             privateKeyContent = result.privateKey;
-                            console.log(`PPK successfully converted to OpenSSH format (encrypted: ${shouldEncrypt})`);
+                            
                         } catch (ppkError: any) {
                             throw new Error(`PPK conversion failed: ${ppkError.message}`);
                         }
@@ -335,10 +332,8 @@ export class ConnectionManager {
                     // Always pass passphrase if provided - let ssh2-streams decide if key is encrypted
                     // Modern OpenSSH encrypted keys don't have obvious "ENCRYPTED" markers in the PEM text
                     if (this.config.passphrase) {
-                        console.log('Passphrase provided, passing to ssh2-streams for key parsing');
                         connectOptions.passphrase = this.config.passphrase;
                     } else {
-                        console.log('No passphrase provided');
                     }
                 } catch (keyError: any) {
                     // Enhanced error handling for key processing
@@ -352,9 +347,6 @@ export class ConnectionManager {
                     throw new Error(`Failed to process SSH key from ${this.config.keyPath}: ${errorMessage}`);
                 }
             } else {
-                // Disable SSH2 signing fix for password authentication
-                const { disableSigningFix } = require('./ssh2StreamsSigningFix');
-                disableSigningFix();
                 
                 // Password authentication - only include password-related options
                 connectOptions = {
@@ -365,12 +357,6 @@ export class ConnectionManager {
                 };
             }
             
-            // Debug connection options (without exposing sensitive data)
-            const debugOptions = { ...connectOptions };
-            if (debugOptions.password) debugOptions.password = '[REDACTED]';
-            if (debugOptions.privateKey) debugOptions.privateKey = '[REDACTED]';
-            if (debugOptions.passphrase) debugOptions.passphrase = '[REDACTED]';
-            console.log('[ConnectionManager] Connecting with options:', debugOptions);
             
             try {
                 await this.sftpClient.connect(connectOptions);
@@ -830,7 +816,6 @@ export class ConnectionManager {
     }
 
     private async reconnect(): Promise<void> {
-        console.log('Attempting to reconnect to server...');
         
         try {
             // Clean up existing connections
@@ -863,7 +848,6 @@ export class ConnectionManager {
                     this.startKeepAlive();
                 }
                 
-                console.log('Successfully reconnected to server');
             } else {
                 throw new Error('No configuration available for reconnection');
             }
@@ -964,7 +948,6 @@ export class ConnectionManager {
                 // Keep-alive succeeded, ensure status is active
                 if (this.keepAliveStatus === 'failing') {
                     this.keepAliveStatus = 'active';
-                    console.log('Keep-alive recovered');
                 }
             } catch (error) {
                 console.warn('Keep-alive check failed, attempting reconnection:', error);
@@ -979,14 +962,12 @@ export class ConnectionManager {
             }
         }, interval);
 
-        console.log(`Keep-alive started with ${interval}ms interval`);
     }
 
     private stopKeepAlive(): void {
         if (this.keepAliveInterval) {
             clearInterval(this.keepAliveInterval);
             this.keepAliveInterval = undefined;
-            console.log('Keep-alive stopped');
         }
     }
 
@@ -1028,7 +1009,6 @@ export class ConnectionManager {
             
             this.ftpConnectionLock = true;
             try {
-                console.log('FTP connection was closed, reconnecting...');
                 // Close the old client first
                 if (this.ftpClient) {
                     this.ftpClient.close();

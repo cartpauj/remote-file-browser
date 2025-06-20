@@ -2,7 +2,7 @@
 	"name": "remote-file-browser",
 	"displayName": "Remote File Browser",
 	"description": "Browse remote files via SFTP/FTP without downloading them locally",
-	"version": "2.5.7",
+	"version": "3.0.0",
 	"publisher": "cartpauj",
 	"icon": "icon.png",
 	"repository": {
@@ -127,11 +127,6 @@
 			{
 				"command": "remoteFileBrowser.downloadFile",
 				"title": "Download",
-				"category": "Remote File Browser"
-			},
-			{
-				"command": "remoteFileBrowser.connectFromWelcomeDebounced",
-				"title": "Connect from Welcome (Debounced)",
 				"category": "Remote File Browser"
 			},
 			{
@@ -385,7 +380,7 @@
 	},
 	"dependencies": {
 		"basic-ftp": "^5.0.5",
-		"ppk-to-openssh": "^3.1.1",
-		"pure-js-sftp": "^2.1.3"
+		"ppk-to-openssh": "^3.2.0",
+		"pure-js-sftp": "^4.0.1"
 	}
 }

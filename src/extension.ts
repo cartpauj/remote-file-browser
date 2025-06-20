@@ -34,7 +34,6 @@ function generateConnectionId(config: any): string {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-    console.log('Remote File Browser extension is now active');
 
     connectionManager = new ConnectionManager();
     remoteFileProvider = new RemoteFileProvider(connectionManager);
@@ -69,7 +68,6 @@ export function activate(context: vscode.ExtensionContext) {
         showCollapseAll: false
     });
 
-    console.log('Remote File Browser extension: Views and commands registered successfully');
 
     // Register dynamic commands for each connection (up to 20 connections)
     for (let i = 0; i < 20; i++) {
@@ -77,13 +75,11 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.commands.registerCommand(`remoteFileBrowser.connectFromWelcome.${i}`, async () => {
                 // GLOBAL LOCK: If any connection is in progress, ignore all clicks
                 if (isAnyConnectionInProgress) {
-                    console.log(`Connection attempt ignored for index ${i} - another connection already in progress`);
                     return;
                 }
                 
                 // Set global lock
                 isAnyConnectionInProgress = true;
-                console.log('Starting connection to index:', i);
                 welcomeViewProvider.setConnecting(i, true);
                 
                 try {
@@ -246,13 +242,11 @@ async function connectDirect(connectionConfig: any) {
 }
 
 async function connectToSavedConnection(connectionIndex: number) {
-    console.log('[Extension] Connecting to saved connection...');
     
     const config = vscode.workspace.getConfiguration('remoteFileBrowser');
     const connections = config.get<any[]>('connections', []);
     
     if (connectionIndex < 0 || connectionIndex >= connections.length) {
-        console.error(`[Extension] Invalid connection index: ${connectionIndex}`);
         vscode.window.showErrorMessage('Invalid connection selected');
         return;
     }
@@ -322,7 +316,6 @@ async function connectToSavedConnection(connectionIndex: number) {
             connectionConfig.password = password;
         }
 
-        console.log('[Extension] Connecting...');
         await connectionManager.connect(connectionConfig);
         remoteFileProvider.resetToDefaultDirectory();
         await vscode.commands.executeCommand('setContext', 'remoteFileBrowser.connected', true);
@@ -591,7 +584,6 @@ async function openRemoteFile(item: any) {
                 remotePath: item.path
             });
         } else {
-            console.warn('File watcher disposable is invalid, skipping storage');
         }
         
     } catch (error) {
@@ -600,7 +592,6 @@ async function openRemoteFile(item: any) {
         // Handle specific TypeError for .once function issues
         if (error instanceof TypeError && error.message.includes('once is not a function')) {
             errorMessage = `Failed to open file: Connection issue detected. Please disconnect and reconnect to the server, then try again.`;
-            console.error('File opening failed with .once error:', error);
         } else {
             errorMessage = getUserFriendlyErrorMessage(error, 'open file');
         }
@@ -644,7 +635,6 @@ async function cleanupCurrentConnectionTempFiles() {
                         }
                         toRemove.push(key);
                     } catch (error) {
-                        console.warn('Failed to dispose file watcher:', error);
                     }
                 }
             }
@@ -676,7 +666,6 @@ async function cleanupCurrentConnectionTempFiles() {
                         }
                         await vscode.workspace.fs.delete(dirUri);
                     } catch (error) {
-                        console.warn(`Failed to delete directory ${dirUri.fsPath}:`, error);
                     }
                     return count;
                 }
@@ -684,8 +673,6 @@ async function cleanupCurrentConnectionTempFiles() {
                 deletedCount = await countAndDeleteDir(connectionTempDir);
                 
             } catch (statError) {
-                // Directory doesn't exist, which is fine
-                console.log('Connection temp directory does not exist:', connectionTempDir.fsPath);
             }
             
             if (deletedCount > 0) {
@@ -695,13 +682,11 @@ async function cleanupCurrentConnectionTempFiles() {
             }
             
         } catch (error) {
-            console.error('Error cleaning up connection temp files:', error);
-            vscode.window.showErrorMessage(`Failed to clean up temporary files: ${error}`);
+                vscode.window.showErrorMessage(`Failed to clean up temporary files: ${error}`);
         }
         
     } catch (error) {
-        console.error('Error in cleanupCurrentConnectionTempFiles:', error);
-        vscode.window.showErrorMessage(`Failed to clean up temporary files: ${error}`);
+            vscode.window.showErrorMessage(`Failed to clean up temporary files: ${error}`);
     }
 }
 
@@ -725,7 +710,6 @@ async function cleanupAllTempFiles() {
                         watcherInfo.disposable.dispose();
                     }
                 } catch (error) {
-                    console.warn('Failed to dispose file watcher:', error);
                 }
             }
             global.remoteFileWatchers.clear();
@@ -757,7 +741,6 @@ async function cleanupAllTempFiles() {
                         }
                         await vscode.workspace.fs.delete(dirUri);
                     } catch (error) {
-                        console.error(`Failed to process directory ${dirUri.fsPath}:`, error);
                     }
                     return count;
                 }
@@ -768,7 +751,6 @@ async function cleanupAllTempFiles() {
             }
             
         } catch (error) {
-            console.error('Error during cleanup:', error);
         }
         
         vscode.window.showInformationMessage(`Cleaned up ${deletedCount} temporary file(s)`);
@@ -1176,7 +1158,6 @@ async function updateTempFileLocation(oldPath: string, newPath: string): Promise
                     await updateEditorTab(oldTempUri, newTempUri, newPath);
                 }
             } catch (error) {
-                console.warn('Failed to update temp file location:', error);
             }
             break;
         }
@@ -1226,7 +1207,6 @@ async function updateEditorTab(oldTempUri: vscode.Uri, newTempUri: vscode.Uri, n
             }
         }
     } catch (error) {
-        console.warn('Failed to update editor tab:', error);
         // Don't throw error - this is a nice-to-have feature
     }
 }
@@ -1550,7 +1530,6 @@ async function editConnectionFromWelcome(item: any) {
         connectionManagerView.showWithEdit(connectionIndex);
         
     } catch (error) {
-        console.error('Error editing connection from welcome:', error);
         vscode.window.showErrorMessage('Failed to edit connection');
     }
 }
@@ -1612,7 +1591,6 @@ async function deleteConnectionFromWelcome(item: any) {
         }
         
     } catch (error) {
-        console.error('Error deleting connection from welcome:', error);
         vscode.window.showErrorMessage('Failed to delete connection');
     }
 }
@@ -1622,7 +1600,6 @@ async function addNewConnectionFromWelcome() {
         // Show the connection manager and trigger add new connection mode
         connectionManagerView.showWithAddNew();
     } catch (error) {
-        console.error('Error opening add new connection from welcome:', error);
         vscode.window.showErrorMessage('Failed to open add new connection');
     }
 }
@@ -1640,7 +1617,6 @@ export function deactivate() {
                     watcherInfo.disposable.dispose();
                 }
             } catch (error) {
-                console.warn('Failed to dispose file watcher during deactivation:', error);
             }
         }
         global.remoteFileWatchers.clear();
