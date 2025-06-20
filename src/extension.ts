@@ -59,9 +59,11 @@ export function activate(context: vscode.ExtensionContext) {
             } else {
                 // For files, get the parent directory
                 const parentPath = path.dirname(selectedItem.path);
+                // Ensure root directory is properly formatted as '/' not empty string
+                const normalizedParentPath = parentPath === '/' || parentPath === '' ? '/' : parentPath;
                 currentSelectedDirectory = {
-                    label: path.basename(parentPath) || '/',
-                    path: parentPath,
+                    label: normalizedParentPath === '/' ? '/' : path.basename(normalizedParentPath),
+                    path: normalizedParentPath,
                     isDirectory: true,
                     collapsibleState: vscode.TreeItemCollapsibleState.Expanded
                 } as RemoteFileItem;
@@ -812,7 +814,10 @@ async function pushToRemote(resourceUri: vscode.Uri) {
                     },
                     {
                         label: 'Current Location', 
-                        description: `Upload to: ${currentSelectedDirectory?.path || connectionManager.getRemotePath()}/${fileName}`,
+                        description: `Upload to: ${(() => {
+                            const targetPath = currentSelectedDirectory?.path || connectionManager.getRemotePath();
+                            return targetPath === '/' ? `/${fileName}` : `${targetPath}/${fileName}`;
+                        })()}`,
                         detail: 'Upload to the currently selected directory in the remote file tree'
                     }
                 ], {

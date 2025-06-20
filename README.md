@@ -53,6 +53,14 @@ Edit remote files seamlessly in VSCode/Cursor with instant access and automatic 
    - If no password was stored, you'll be prompted to enter it
    - Choose **"Yes"** to save credentials securely for future connections
 
+### Connection Management
+
+#### Cloning Connections
+- Click **"Clone"** button next to any saved connection to duplicate it
+- Cloned connections are automatically prefixed with "copy of " 
+- Perfect for setting up similar server environments (dev, staging, production)
+- Edit the cloned connection to customize host, port, or other settings
+
 ## Daily Usage
 
 ### Quick Connect
@@ -61,7 +69,7 @@ Edit remote files seamlessly in VSCode/Cursor with instant access and automatic 
 - **Single-click** any connection name to connect instantly (double-clicking is not necessary)
 - **Right-click options**:
   - **Manage Connections** item: Right-click to access **"Add New Connection"** option
-  - **Individual connections**: Right-click for **"Edit Connection"** and **"Delete Connection"** options
+  - **Individual connections**: Right-click for **"Edit Connection"**, **"Clone"**, and **"Delete Connection"** options
 
 ### Browsing Files
 - Once connected, browse files in the **"Remote Files"** tree view
@@ -98,8 +106,13 @@ Some users prefer different file opening behaviors. You can customize these in V
 - Open any local file in VSCode/Cursor
 - **Right-click on the file tab** at the top of the editor
 - Select **"Push to Remote"** from the context menu
-- The file will be uploaded to the currently selected directory in the remote tree
-- **Note**: You must first select a directory in the remote file tree as the upload destination
+
+#### Smart Upload Destinations
+- **Regular local files**: Upload directly to currently selected directory in remote tree
+- **Temporary files** (from `/tmp/`): Get choice between two destinations:
+  - **"Original Location"**: Upload back to where the file was originally downloaded from
+  - **"Current Location"**: Upload to currently selected directory in remote tree
+- **Note**: For regular files, you must first select a directory in the remote file tree as the upload destination
 
 ### Renaming and Deleting Remote Files
 You can rename or delete files and directories directly on the remote server:

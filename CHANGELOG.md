@@ -5,6 +5,43 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2025-06-20
+
+### Added
+- **Connection Cloning**: Added "Clone" button to Connections Manager with confirmation dialog
+  - One-click duplication of connection configurations
+  - Automatically prefixes cloned connections with "copy of "
+  - Streamlines setup for similar server environments
+- **Enhanced Temp File Push**: Smart destination choice for temporary files in "Push to Remote"
+  - When pushing temp files from `/tmp/`, users get choice between "Original Location" and "Current Location"
+  - Original Location: uploads back to where file was downloaded from
+  - Current Location: uploads to currently selected directory in remote tree
+  - Regular local files continue to upload directly to current selection
+- **Improved Current Directory Tracking**: Fixed remote directory selection logic
+  - Clicking on files now correctly updates current directory to file's parent directory
+  - Accurate path display in push destination dialogs
+  - Fixed double slash issue in root directory paths
+
+### Enhanced
+- **Connection Manager UI**: Streamlined FTP connection interface
+  - Authentication dropdown automatically hidden for FTP connections (only password supported)
+  - Cleaner form with protocol-appropriate options
+  - Improved user experience with context-aware controls
+- **Password Management**: Enhanced credential handling in connection editing
+  - Stored passwords now pre-fill when editing existing connections
+  - Secure retrieval from VSCode's credential storage
+  - Better user feedback for password loading status
+- **Path Handling**: Improved remote path construction and validation
+  - Fixed root directory double slash display issues
+  - Better path normalization for both SFTP and FTP protocols
+  - Consistent behavior across all upload scenarios
+
+### Fixed
+- **FTP Authentication UI**: Authentication dropdown no longer appears for FTP connections
+- **Password Pre-filling**: Editing connections now correctly displays stored passwords
+- **Directory Selection**: Current remote directory properly updates when selecting files
+- **Path Display**: Eliminated `//filename` formatting in root directory scenarios
+
 ## [3.0.0] - 2025-01-20
 
 ### Major Code Cleanup & Modernization
