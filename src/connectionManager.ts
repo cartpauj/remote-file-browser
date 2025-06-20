@@ -492,8 +492,15 @@ export class ConnectionManager {
     private async writeFileSftp(path: string, content: string): Promise<void> {
         if (!this.sftpClient) throw new Error('SFTP client not connected');
 
+        // Normalize the path to prevent creation of intermediate directories
+        const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+        
+        console.log(`SFTP writeFile Debug:
+            Original path: ${path}
+            Normalized path: ${normalizedPath}`);
+        
         await this.withOperationTimeout(
-            this.sftpClient.put(Buffer.from(content), path),
+            this.sftpClient.put(Buffer.from(content), normalizedPath),
             'write file'
         );
     }
@@ -504,6 +511,13 @@ export class ConnectionManager {
         // Check if connection is still alive and reconnect if needed
         await this.ensureFtpConnection();
 
+        // Normalize the path to prevent creation of intermediate directories
+        const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+
+        console.log(`FTP writeFile Debug:
+            Original path: ${path}
+            Normalized path: ${normalizedPath}`);
+
         // Create a readable stream from the content
         const buffer = Buffer.from(content);
         const stream = new Readable();
@@ -511,7 +525,7 @@ export class ConnectionManager {
         stream.push(null); // End of stream
 
         await this.withOperationTimeout(
-            this.ftpClient.uploadFrom(stream, path),
+            this.ftpClient.uploadFrom(stream, normalizedPath),
             'write file'
         );
     }

@@ -57,8 +57,14 @@ export function activate(context: vscode.ExtensionContext) {
             if (selectedItem.isDirectory) {
                 currentSelectedDirectory = selectedItem;
             } else {
-                // For files, we could potentially get the parent directory
-                // For now, we'll keep the last selected directory
+                // For files, get the parent directory
+                const parentPath = path.dirname(selectedItem.path);
+                currentSelectedDirectory = {
+                    label: path.basename(parentPath) || '/',
+                    path: parentPath,
+                    isDirectory: true,
+                    collapsibleState: vscode.TreeItemCollapsibleState.Expanded
+                } as RemoteFileItem;
             }
         }
     });
@@ -774,12 +780,6 @@ async function pushToRemote(resourceUri: vscode.Uri) {
             return;
         }
 
-        // Use selected directory or fall back to root directory if none selected
-        const targetDirectory = currentSelectedDirectory || {
-            path: connectionManager.getRemotePath(),
-            isDirectory: true
-        };
-
         // Get the local file path
         const localFilePath = resourceUri.fsPath;
         const fileName = path.basename(localFilePath);
@@ -790,13 +790,82 @@ async function pushToRemote(resourceUri: vscode.Uri) {
             return;
         }
 
+        // Check if this is a temp file from the remote file browser
+        const tempDir = os.tmpdir();
+        const remoteBrowserTempDir = path.join(tempDir, 'remote-file-browser');
+        const isTemporaryFile = localFilePath.startsWith(remoteBrowserTempDir);
+        
+        let remotePath: string;
+        
+        if (isTemporaryFile) {
+            // This is a temp file - give user choice between original location and current selection
+            const fileUri = resourceUri.toString();
+            const watcherInfo = global.remoteFileWatchers?.get(fileUri);
+            
+            if (watcherInfo && watcherInfo.remotePath) {
+                // Show choice dialog
+                const choice = await vscode.window.showQuickPick([
+                    {
+                        label: 'Original Location',
+                        description: `Upload to: ${watcherInfo.remotePath}`,
+                        detail: 'Upload to the location where this file was originally downloaded from'
+                    },
+                    {
+                        label: 'Current Location', 
+                        description: `Upload to: ${currentSelectedDirectory?.path || connectionManager.getRemotePath()}/${fileName}`,
+                        detail: 'Upload to the currently selected directory in the remote file tree'
+                    }
+                ], {
+                    placeHolder: 'Choose upload destination for temporary file',
+                    ignoreFocusOut: true
+                });
+                
+                if (!choice) {
+                    return; // User cancelled
+                }
+                
+                if (choice.label === 'Original Location') {
+                    remotePath = watcherInfo.remotePath;
+                } else {
+                    // Use current selection
+                    const targetDirectory = currentSelectedDirectory || {
+                        path: connectionManager.getRemotePath(),
+                        isDirectory: true
+                    };
+                    remotePath = targetDirectory.path === '/' 
+                        ? `/${fileName}` 
+                        : `${targetDirectory.path}/${fileName}`;
+                }
+            } else {
+                // Temp file but no watcher info - treat as regular file
+                const targetDirectory = currentSelectedDirectory || {
+                    path: connectionManager.getRemotePath(),
+                    isDirectory: true
+                };
+                remotePath = targetDirectory.path === '/' 
+                    ? `/${fileName}` 
+                    : `${targetDirectory.path}/${fileName}`;
+            }
+        } else {
+            // Regular local file - use current selection
+            const targetDirectory = currentSelectedDirectory || {
+                path: connectionManager.getRemotePath(),
+                isDirectory: true
+            };
+            remotePath = targetDirectory.path === '/' 
+                ? `/${fileName}` 
+                : `${targetDirectory.path}/${fileName}`;
+        }
+
         // Read the local file content
         const fileContent = fs.readFileSync(localFilePath, 'utf8');
-
-        // Construct the remote file path
-        const remotePath = targetDirectory.path === '/' 
-            ? `/${fileName}` 
-            : `${targetDirectory.path}/${fileName}`;
+            
+        // Debug logging to understand what paths are being used
+        console.log(`Push to Remote Debug:
+            Local file: ${localFilePath}
+            File name only: ${fileName}
+            Is temporary file: ${isTemporaryFile}
+            Final remote path: ${remotePath}`);
 
         // Show progress indicator
         await vscode.window.withProgress({
@@ -813,8 +882,9 @@ async function pushToRemote(resourceUri: vscode.Uri) {
                 progress.report({ increment: 100 });
                 
                 // Show success message
+                const targetPath = path.dirname(remotePath);
                 vscode.window.showInformationMessage(
-                    `Successfully pushed ${fileName} to ${targetDirectory.path}`
+                    `Successfully pushed ${fileName} to ${targetPath}`
                 );
 
                 // Refresh the remote file tree to show the new file

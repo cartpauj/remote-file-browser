@@ -190,6 +190,50 @@ export class ConnectionManagerView {
                 this.openTempDirectoryInTerminal(tempDirPath);
                 break;
 
+            case 'cloneConnection':
+                const connectionToClone = connections[message.index];
+                const clonedConnection = { 
+                    ...connectionToClone, 
+                    name: `copy of ${connectionToClone.name || 'Unnamed Connection'}`
+                };
+                
+                // Show confirmation dialog
+                const cloneName = connectionToClone.name || `${connectionToClone.username}@${connectionToClone.host}`;
+                const confirmClone = await vscode.window.showWarningMessage(
+                    `Are you sure you want to clone "${cloneName}"?`,
+                    { modal: true },
+                    'Clone'
+                );
+                
+                if (confirmClone === 'Clone') {
+                    connections.push(clonedConnection);
+                    await config.update('connections', connections, vscode.ConfigurationTarget.Global);
+                    vscode.window.showInformationMessage('Connection cloned successfully');
+                    this.loadConnections();
+                    this.welcomeViewProvider?.refresh();
+                }
+                break;
+
+            case 'getStoredPassword':
+                // Retrieve stored password for editing
+                try {
+                    const connectionId = CredentialManager.generateConnectionId(message.connection);
+                    const storedPassword = await this.credentialManager.getPassword(connectionId);
+                    this.panel?.webview.postMessage({
+                        type: 'storedPassword',
+                        password: storedPassword || '',
+                        editIndex: message.editIndex
+                    });
+                } catch (error) {
+                    console.error('Error retrieving stored password:', error);
+                    this.panel?.webview.postMessage({
+                        type: 'storedPassword',
+                        password: '',
+                        editIndex: message.editIndex
+                    });
+                }
+                break;
+
             case 'webviewReady':
                 // Webview is ready, load connections
                 this.loadConnections();
@@ -633,7 +677,7 @@ export class ConnectionManagerView {
                     <input type="text" id="username" name="username" required>
                 </div>
                 
-                <div class="form-group">
+                <div class="form-group" id="authTypeGroup">
                     <label for="authType">Authentication:</label>
                     <select id="authType" name="authType" required>
                         <option value="password">Password</option>
@@ -760,6 +804,13 @@ export class ConnectionManagerView {
             });
         }
 
+        function cloneConnection(index) {
+            vscode.postMessage({
+                type: 'cloneConnection',
+                index: index
+            });
+        }
+
         // Load connections
         window.addEventListener('message', event => {
             const message = event.data;
@@ -768,6 +819,10 @@ export class ConnectionManagerView {
                 renderConnections();
             } else if (message.type === 'keyFileSelected') {
                 document.getElementById('keyPath').value = message.path;
+            } else if (message.type === 'storedPassword') {
+                // Received stored password for editing
+                document.getElementById('password').value = message.password || '';
+                document.getElementById('password').placeholder = message.password ? 'Password loaded from secure storage' : 'Enter new password or leave empty to keep existing';
             } else if (message.type === 'editConnection') {
                 // Edit connection from welcome view
                 if (message.index >= 0 && message.index < connections.length) {
@@ -844,6 +899,7 @@ export class ConnectionManagerView {
             const connectionTimeout = document.getElementById('connectionTimeout');
             const anonymousGroup = document.getElementById('anonymousGroup');
             const anonymousCheckbox = document.getElementById('anonymous');
+            const authTypeGroup = document.getElementById('authTypeGroup');
             
             const authTypeSelect = document.getElementById('authType');
             
@@ -859,6 +915,9 @@ export class ConnectionManagerView {
                 // Hide anonymous option for SFTP
                 anonymousGroup.style.display = 'none';
                 anonymousCheckbox.checked = false;
+                
+                // Show authentication dropdown for SFTP (has multiple options)
+                authTypeGroup.style.display = 'block';
                 
                 // Show SSH Key option for SFTP
                 const currentAuthType = authTypeSelect.value;
@@ -880,13 +939,16 @@ export class ConnectionManagerView {
                 // Show anonymous option for FTP
                 anonymousGroup.style.display = 'block';
                 
-                // Hide SSH Key option for FTP (only password supported)
+                // Hide authentication dropdown for FTP (only password supported)
+                authTypeGroup.style.display = 'none';
+                
+                // Set auth type to password for FTP (only option)
                 const currentAuthType = authTypeSelect.value;
                 authTypeSelect.innerHTML = '<option value="password">Password</option>';
-                // Only change to password if user had SSH key selected (invalid for FTP)
+                authTypeSelect.value = 'password';
+                
+                // Show warning that SSH keys aren't supported for FTP if user had it selected
                 if (currentAuthType === 'key') {
-                    authTypeSelect.value = 'password';
-                    // Show warning that SSH keys aren't supported for FTP
                     setTimeout(() => {
                         alert('Note: SSH Key authentication is not supported for FTP. Switched to Password authentication.');
                     }, 100);
@@ -1024,6 +1086,7 @@ export class ConnectionManagerView {
                         <div class="button-group">
                             <button onclick="connectToConnection(\${index})">Connect</button>
                             <button onclick="editConnection(\${index})">Edit</button>
+                            <button onclick="cloneConnection(\${index})">Clone</button>
                             <button onclick="deleteConnection(\${index})" class="danger">Delete</button>
                         </div>
                     </div>
@@ -1041,7 +1104,7 @@ export class ConnectionManagerView {
             document.getElementById('connectionFormSection').style.display = 'none';
         }
 
-        function editConnection(index) {
+        async function editConnection(index) {
             const conn = connections[index];
             editingIndex = index;
 
@@ -1058,9 +1121,23 @@ export class ConnectionManagerView {
             document.getElementById('host').value = conn.host || '';
             document.getElementById('port').value = conn.port !== undefined ? conn.port : (conn.protocol === 'ftp' ? 21 : 22);
             document.getElementById('username').value = conn.username || '';
-            // Don't display stored password for security - leave empty
-            document.getElementById('password').value = '';
-            document.getElementById('password').placeholder = 'Enter new password or leave empty to keep existing';
+            
+            // Retrieve and display stored password for editing
+            // Use the same connection ID format as CredentialManager.generateConnectionId()
+            const connectionForId = {
+                protocol: conn.protocol || 'sftp',
+                username: conn.username,
+                host: conn.host,
+                port: conn.port !== undefined ? conn.port : (conn.protocol === 'ftp' ? 21 : 22)
+            };
+            
+            // Request password from extension
+            vscode.postMessage({
+                type: 'getStoredPassword',
+                connection: connectionForId,
+                editIndex: index
+            });
+            
             document.getElementById('remotePath').value = conn.remotePath || '/';
             document.getElementById('authType').value = conn.authType || 'password';
             document.getElementById('anonymous').checked = conn.anonymous || false;
@@ -1076,12 +1153,15 @@ export class ConnectionManagerView {
             document.getElementById('enableKeepAlive').checked = conn.enableKeepAlive !== false; // Default to true
             document.getElementById('keepAliveInterval').value = conn.keepAliveInterval || '30000';
 
-            // Trigger protocol change to show/hide anonymous option
+            // Trigger protocol change to show/hide anonymous option and auth dropdown
             const protocolEvent = new Event('change');
             document.getElementById('protocol').dispatchEvent(protocolEvent);
 
             // Re-set auth type after protocol change (which resets the select options)
-            document.getElementById('authType').value = conn.authType || 'password';
+            // Only set if auth type group is visible (SFTP)
+            if (document.getElementById('authTypeGroup').style.display !== 'none') {
+                document.getElementById('authType').value = conn.authType || 'password';
+            }
 
             // Trigger auth type change to show/hide fields
             const authTypeEvent = new Event('change');
@@ -1115,6 +1195,7 @@ export class ConnectionManagerView {
             document.getElementById('anonymous').checked = false;
             
             // Reset authentication dropdown to show both options (SFTP default)
+            document.getElementById('authTypeGroup').style.display = 'block';
             document.getElementById('authType').innerHTML = '<option value="password">Password</option><option value="key">SSH Key</option>';
             document.getElementById('authType').value = 'password';
             
