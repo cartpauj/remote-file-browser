@@ -5,6 +5,14 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.2] - 2025-06-21
+
+### Fixed
+- **Double Connection Prevention**: Added protection against multiple simultaneous connection attempts from connection manager
+  - Prevents users from clicking connect buttons rapidly on multiple connection items
+  - Eliminates race conditions that could cause connection conflicts or unexpected behavior
+  - Connection manager now properly handles rapid successive clicks with proper state management
+
 ## [3.2.1] - 2025-06-21
 
 ### Added

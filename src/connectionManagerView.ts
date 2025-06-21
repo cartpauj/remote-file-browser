@@ -296,6 +296,22 @@ export class ConnectionManagerView {
             return;
         }
 
+        // Check if there are active remote operations
+        const connectionManager = getConnectionManager();
+        if (connectionManager && connectionManager.hasActiveOperations()) {
+            const activeOps = connectionManager.getActiveOperations();
+            const choice = await vscode.window.showWarningMessage(
+                `Remote operations are still in progress: ${activeOps.join(', ')}. Try again in a few seconds.`,
+                { modal: true },
+                'OK',
+                'Force Connect'
+            );
+            
+            if (choice !== 'Force Connect') {
+                return; // User chose OK or cancelled
+            }
+        }
+
         const connection = connections[index];
         
         // Check if already connected
