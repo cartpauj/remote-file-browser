@@ -5,6 +5,14 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.2] - 2025-06-21
+
+### Fixed
+- **User Manual Cross-Platform Compatibility**: Fixed "readme.md not found" error in Cursor IDE
+  - Made README.md file lookup case-insensitive to work across different editors
+  - Now tries multiple filename variations (README.md, readme.md, Readme.md)
+  - Ensures User Manual button works consistently in both VSCode and Cursor
+
 ## [3.3.1] - 2025-06-21
 
 ### Added

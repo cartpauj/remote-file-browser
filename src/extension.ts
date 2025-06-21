@@ -1740,13 +1740,30 @@ async function addNewConnectionFromWelcome() {
 
 async function openUserManual(context: vscode.ExtensionContext) {
     try {
-        // Get the path to the extension's README.md file
-        const readmePath = vscode.Uri.joinPath(context.extensionUri, 'readme.md');
+        // Try both case variations of README.md
+        const readmeVariations = ['README.md', 'readme.md', 'Readme.md'];
+        let readmePath: vscode.Uri | null = null;
+        
+        for (const variation of readmeVariations) {
+            const testPath = vscode.Uri.joinPath(context.extensionUri, variation);
+            try {
+                await vscode.workspace.fs.stat(testPath);
+                readmePath = testPath;
+                break;
+            } catch {
+                // File doesn't exist, try next variation
+                continue;
+            }
+        }
+        
+        if (!readmePath) {
+            throw new Error('README.md file not found');
+        }
         
         // Open the README.md file using markdown preview (truly read-only)
         await vscode.commands.executeCommand('markdown.showPreview', readmePath);
     } catch (error) {
-        vscode.window.showErrorMessage('Failed to open user manual');
+        vscode.window.showErrorMessage('Failed to open user manual: readme.md not found');
     }
 }
 
