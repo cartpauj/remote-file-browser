@@ -94,6 +94,20 @@ The extension uses smart notification management:
 
 ### Connection Management
 
+#### Smart Connection State Management
+The connection manager now provides intelligent connection handling:
+
+- **Visual Connection State**: Currently connected servers are highlighted with a green border and "● Connected" indicator
+- **Smart Connect/Disconnect Buttons**: 
+  - When **not connected**: Shows "Connect" button
+  - When **connected**: Shows red "Disconnect" button
+- **Connection Switching**: When trying to connect to a different server while already connected:
+  - Shows confirmation dialog: "Disconnect from [current] and connect to [new]?"
+  - Automatically disconnects first, then connects to new server
+  - Prevents accidental connection switching
+- **Same Connection Protection**: Clicking "Connect" on the already-connected server shows "Already connected" message
+- **Connection Manager Stays Open**: Window remains open after connecting for easy server switching
+
 #### Cloning Connections
 - Click **"Clone"** button next to any saved connection to duplicate it
 - Cloned connections are automatically prefixed with "copy of " 
@@ -103,8 +117,8 @@ The extension uses smart notification management:
 ## Daily Usage
 
 ### Quick Connect
-- Click the globe icon (🌐) to see your recent connections
-- Expand **"Recent Connections"** to see up to 10 saved servers
+- Click the globe icon (🌐) to see your saved connections
+- Expand **"Existing Connections"** to see all saved servers (sorted alphabetically)
 - **Single-click** any connection name to connect instantly (double-clicking is not necessary)
 - **Right-click options**:
   - **Manage Connections** item: Right-click to access **"Add New Connection"** option

@@ -72,7 +72,7 @@ export class WelcomeViewProvider implements vscode.TreeDataProvider<WelcomeItem>
     }
 
     getTreeItem(element: WelcomeItem): vscode.TreeItem {
-        if (element.label === 'Recent Connections') {
+        if (element.label === 'Existing Connections') {
             const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.Expanded);
             item.iconPath = element.iconPath;
             return item;
@@ -98,8 +98,8 @@ export class WelcomeViewProvider implements vscode.TreeDataProvider<WelcomeItem>
     getChildren(element?: WelcomeItem): Thenable<WelcomeItem[]> {
         if (!element) {
             return Promise.resolve(this.getWelcomeItems());
-        } else if (element.label === 'Recent Connections') {
-            return Promise.resolve(this.getRecentConnectionItems());
+        } else if (element.label === 'Existing Connections') {
+            return Promise.resolve(this.getExistingConnectionItems());
         }
         return Promise.resolve([]);
     }
@@ -117,46 +117,54 @@ export class WelcomeViewProvider implements vscode.TreeDataProvider<WelcomeItem>
             }
         });
 
-        // Recent Connections collapsible section
-        const connections = this.getRecentConnections();
+        // Existing Connections collapsible section
+        const connections = this.getExistingConnections();
         if (connections.length > 0) {
             items.push({
-                label: 'Recent Connections',
-                iconPath: new vscode.ThemeIcon('history')
+                label: 'Existing Connections',
+                iconPath: new vscode.ThemeIcon('database')
             });
         }
 
         return items;
     }
 
-    private getRecentConnectionItems(): WelcomeItem[] {
+    private getExistingConnectionItems(): WelcomeItem[] {
         const items: WelcomeItem[] = [];
-        const connections = this.getRecentConnections();
+        const connections = this.getExistingConnections();
         
-        for (let i = 0; i < connections.length; i++) {
-            const connection = connections[i];
+        // Create array with original indexes and sort by name
+        const sortedConnections = connections
+            .map((connection, originalIndex) => ({ connection, originalIndex }))
+            .sort((a, b) => {
+                const nameA = a.connection.name || `${a.connection.username}@${a.connection.host}`;
+                const nameB = b.connection.name || `${b.connection.username}@${b.connection.host}`;
+                return nameA.localeCompare(nameB);
+            });
+        
+        for (const { connection, originalIndex } of sortedConnections) {
             const connectionName = connection.name || `${connection.username}@${connection.host}`;
-            const isConnecting = this.connectingIndexes.has(i);
+            const isConnecting = this.connectingIndexes.has(originalIndex);
             
             items.push({
                 label: isConnecting ? `${connectionName} (Connecting...)` : connectionName,
                 iconPath: new vscode.ThemeIcon(isConnecting ? 'loading~spin' : 'plug'),
                 command: isConnecting ? undefined : {
-                    command: `remoteFileBrowser.connectFromWelcome.${i}`,
+                    command: `remoteFileBrowser.connectFromWelcome.${originalIndex}`,
                     title: 'Connect'
                 },
-                connectionIndex: i
+                connectionIndex: originalIndex
             });
         }
 
         return items;
     }
 
-    private getRecentConnections(): any[] {
+    private getExistingConnections(): any[] {
         const config = vscode.workspace.getConfiguration('remoteFileBrowser');
         const connections = config.get<any[]>('connections', []);
         
-        // Return first 10 connections
-        return connections.slice(0, 10);
+        // Return all connections (no limit)
+        return connections;
     }
 }

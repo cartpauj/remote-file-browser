@@ -14,9 +14,14 @@ let connectionManager: ConnectionManager;
 let connectionManagerView: ConnectionManagerView;
 let credentialManager: CredentialManager;
 let welcomeViewProvider: WelcomeViewProvider;
+
+export function getConnectionManager(): ConnectionManager {
+    return connectionManager;
+}
 let currentSelectedDirectory: RemoteFileItem | undefined;
 let treeDataProvider: vscode.TreeView<RemoteFileItem>;
 let isAnyConnectionInProgress = false; // Global flag to prevent all connection attempts
+
 
 // Global file watchers storage with connection tracking
 interface FileWatcherInfo {
@@ -46,6 +51,7 @@ export function activate(context: vscode.ExtensionContext) {
     
     // Set up connection status manager between connection manager and connection manager view
     connectionManager.setStatusManager(connectionManagerView.getConnectionStatusManager());
+
 
     treeDataProvider = vscode.window.createTreeView('remoteFilesList', {
         treeDataProvider: remoteFileProvider,
@@ -248,12 +254,17 @@ async function connectDirect(connectionConfig: any, connectionIndex?: number) {
         // Show success in status bar instead of popup
         connectionManagerView.getConnectionStatusManager().showSuccess(connectionConfig.host);
         
+        // Clear connecting state and refresh connection manager
+        connectionManagerView.clearConnectingState();
+        connectionManagerView.refreshConnections();
+        
         // Clear welcome view spinner if connection index is provided
         if (connectionIndex !== undefined && welcomeViewProvider) {
             welcomeViewProvider.setConnecting(connectionIndex, false);
         }
     } catch (error) {
-        // Clear welcome view spinner on failure too
+        // Clear connecting state and welcome view spinner on failure
+        connectionManagerView.clearConnectingState();
         if (connectionIndex !== undefined && welcomeViewProvider) {
             welcomeViewProvider.setConnecting(connectionIndex, false);
         }
@@ -346,6 +357,9 @@ async function connectToSavedConnection(connectionIndex: number) {
         
         // Show success in status bar instead of popup
         connectionManagerView.getConnectionStatusManager().showSuccess(connection.host);
+        
+        // Refresh connection manager to show updated connection state
+        connectionManagerView.refreshConnections();
     } catch (error) {
         // Check if this is likely an authentication error
         const errorMessage = error?.toString() || '';
@@ -462,14 +476,42 @@ async function connectToRemoteServer() {
 
 async function disconnectFromRemoteServer() {
     try {
+        // Check if there are active operations
+        if (connectionManager.hasActiveOperations()) {
+            const activeOps = connectionManager.getActiveOperations();
+            const hasFileOperations = activeOps.some(op => 
+                op.includes('writing') || op.includes('deleting') || op.includes('renaming') || op.includes('copying')
+            );
+            
+            let message = `Remote operations are still in progress: ${activeOps.join(', ')}.`;
+            if (hasFileOperations) {
+                message += ' Force disconnecting during file operations may cause data corruption.';
+            }
+            
+            const choice = await vscode.window.showWarningMessage(
+                message,
+                { modal: true },
+                'Wait for Operations',
+                'Force Disconnect'
+            );
+            
+            if (choice === 'Wait for Operations') {
+                return; // Cancel disconnect
+            }
+            // If 'Force Disconnect', continue with disconnect and clear operations
+        }
+        
         await connectionManager.disconnect();
         remoteFileProvider.resetToDefaultDirectory();
         await vscode.commands.executeCommand('setContext', 'remoteFileBrowser.connected', false);
         updateNavigationContext();
         remoteFileProvider.refresh();
         
-        // Show disconnected status in status bar instead of popup
-        connectionManagerView.getConnectionStatusManager().showDisconnected();
+        // Hide status bar completely to clear disconnect button
+        connectionManagerView.getConnectionStatusManager().hide();
+        
+        // Refresh connection manager to show updated connection state
+        connectionManagerView.refreshConnections();
     } catch (error) {
         vscode.window.showErrorMessage(`Failed to disconnect: ${error}`);
     }

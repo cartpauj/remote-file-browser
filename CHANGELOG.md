@@ -5,6 +5,31 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.1] - 2025-06-21
+
+### Added
+- **Smart Connection State Management**: Enhanced connection manager with intelligent connection handling
+  - Visual connection state indicators with green border and "● Connected" status for active connections
+  - Context-aware Connect/Disconnect buttons that change based on current connection state
+  - Connection switching confirmation dialog prevents accidental disconnections
+  - Same connection protection with "Already connected" feedback for redundant connection attempts
+- **Improved Welcome View Organization**: 
+  - Renamed "Recent Connections" to "Existing Connections" for clearer terminology
+  - Alphabetical sorting of all saved connections for better organization
+  - Removed arbitrary 10-connection limit to show all saved connections
+
+### Enhanced
+- **Connection Manager User Experience**: 
+  - Connection manager window now stays open after connecting for easy server switching
+  - Real-time UI updates reflect current connection state immediately
+  - Red disconnect button styling for clear distinction from connect actions
+  - Automatic disconnect before connecting to new server with user confirmation
+- **Connection Workflow**: Streamlined server switching with proper cleanup and confirmation dialogs
+
+### Fixed
+- **Modal Dialog Issue**: Removed duplicate "Cancel" button in connection switching confirmation dialog
+- **Connection State Sync**: Connection manager now properly reflects current connection state when opened
+
 ## [3.2.0] - 2025-06-21
 
 ### Added

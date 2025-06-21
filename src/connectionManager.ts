@@ -50,6 +50,7 @@ export class ConnectionManager {
     private connectionRetries = 0;
     private ftpConnectionLock = false;
     private statusManager?: ConnectionStatusManager;
+    private activeOperations: Set<string> = new Set();
     
     // Health monitoring properties
     private lastSuccessfulOperation?: Date;
@@ -63,12 +64,45 @@ export class ConnectionManager {
         this.statusManager = statusManager;
     }
 
+    getActiveOperations(): string[] {
+        return Array.from(this.activeOperations);
+    }
+
+    hasActiveOperations(): boolean {
+        return this.activeOperations.size > 0;
+    }
+
+    private addOperation(operation: string): void {
+        this.activeOperations.add(operation);
+    }
+
+    private removeOperation(operation: string): void {
+        this.activeOperations.delete(operation);
+    }
+
+    private clearAllOperations(): void {
+        this.activeOperations.clear();
+    }
+
+    public getCurrentConnectionInfo(): {isConnected: boolean, host?: string, config?: ConnectionConfig} {
+        return {
+            isConnected: this.connected,
+            host: this.config?.host,
+            config: this.config
+        };
+    }
+
     async connect(config: ConnectionConfig): Promise<void> {
         this.config = config;
         this.connectionRetries = 0;
 
-        await this.connectWithRetry();
-        this.connected = true;
+        this.addOperation('connecting');
+        try {
+            await this.connectWithRetry();
+            this.connected = true;
+        } finally {
+            this.removeOperation('connecting');
+        }
         
         // Update health metrics
         this.totalConnections++;
@@ -147,6 +181,9 @@ export class ConnectionManager {
         // Reset health monitoring
         this.connectionStartTime = undefined;
         this.keepAliveStatus = 'inactive';
+        
+        // Clear all active operations on disconnect
+        this.clearAllOperations();
     }
 
     isConnected(): boolean {
@@ -162,6 +199,7 @@ export class ConnectionManager {
             throw new Error('Not connected to remote server');
         }
 
+        this.addOperation('listing files');
         try {
             if (this.config.protocol === 'sftp') {
                 return await this.listFilesSftp(path);
@@ -179,6 +217,8 @@ export class ConnectionManager {
                 }
             }
             throw error;
+        } finally {
+            this.removeOperation('listing files');
         }
     }
 
@@ -187,6 +227,7 @@ export class ConnectionManager {
             throw new Error('Not connected to remote server');
         }
 
+        this.addOperation('reading file');
         try {
             if (this.config.protocol === 'sftp') {
                 return await this.readFileSftp(path);
@@ -204,6 +245,8 @@ export class ConnectionManager {
                 }
             }
             throw error;
+        } finally {
+            this.removeOperation('reading file');
         }
     }
 
@@ -212,6 +255,7 @@ export class ConnectionManager {
             throw new Error('Not connected to remote server');
         }
 
+        this.addOperation('writing file');
         try {
             if (this.config.protocol === 'sftp') {
                 await this.writeFileSftp(path, content);
@@ -230,6 +274,8 @@ export class ConnectionManager {
             } else {
                 throw error;
             }
+        } finally {
+            this.removeOperation('writing file');
         }
     }
 
@@ -561,6 +607,7 @@ export class ConnectionManager {
             throw new Error('Not connected to server');
         }
 
+        this.addOperation('deleting file');
         try {
             if (this.config?.protocol === 'sftp') {
                 await this.deleteFileSftp(path, isDirectory);
@@ -580,6 +627,8 @@ export class ConnectionManager {
             } else {
                 throw error;
             }
+        } finally {
+            this.removeOperation('deleting file');
         }
     }
 
@@ -588,6 +637,7 @@ export class ConnectionManager {
             throw new Error('Not connected to server');
         }
 
+        this.addOperation('renaming file');
         try {
             if (this.config?.protocol === 'sftp') {
                 await this.renameFileSftp(oldPath, newPath);
@@ -607,6 +657,8 @@ export class ConnectionManager {
             } else {
                 throw error;
             }
+        } finally {
+            this.removeOperation('renaming file');
         }
     }
 
@@ -615,6 +667,7 @@ export class ConnectionManager {
             throw new Error('Not connected to server');
         }
 
+        this.addOperation('checking file');
         try {
             if (this.config?.protocol === 'sftp') {
                 if (!this.sftpClient) throw new Error('SFTP client not connected');
@@ -649,6 +702,8 @@ export class ConnectionManager {
         } catch (error) {
             // If we get an error (like "No such file"), the file doesn't exist
             return false;
+        } finally {
+            this.removeOperation('checking file');
         }
     }
 
@@ -657,6 +712,7 @@ export class ConnectionManager {
             throw new Error('Not connected to server');
         }
 
+        this.addOperation('copying file');
         try {
             if (isDirectory) {
                 await this.copyDirectoryRecursive(sourcePath, targetPath);
@@ -679,6 +735,8 @@ export class ConnectionManager {
             } else {
                 throw error;
             }
+        } finally {
+            this.removeOperation('copying file');
         }
     }
 

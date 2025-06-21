@@ -4,6 +4,7 @@ import * as path from 'path';
 import { CredentialManager } from './credentialManager';
 import { WelcomeViewProvider } from './welcomeViewProvider';
 import { ConnectionStatusManager } from './connectionStatusManager';
+import { getConnectionManager } from './extension';
 
 export class ConnectionManagerView {
     private panel: vscode.WebviewPanel | undefined;
@@ -22,6 +23,18 @@ export class ConnectionManagerView {
 
     public getConnectionStatusManager(): ConnectionStatusManager {
         return this.connectionStatusManager;
+    }
+
+    public refreshConnections() {
+        this.loadConnections();
+    }
+
+    public clearConnectingState() {
+        if (this.panel) {
+            this.panel.webview.postMessage({
+                type: 'clearConnecting'
+            });
+        }
     }
 
 
@@ -175,7 +188,11 @@ export class ConnectionManagerView {
                 break;
 
             case 'connectToConnection':
-                await this.connectToSavedConnection(message.index);
+                this.connectToSavedConnection(message.index);
+                break;
+
+            case 'disconnect':
+                vscode.commands.executeCommand('remoteFileBrowser.disconnect');
                 break;
 
             case 'cleanupTempFiles':
@@ -281,6 +298,36 @@ export class ConnectionManagerView {
 
         const connection = connections[index];
         
+        // Check if already connected
+        const currentConnectionState = await this.getCurrentConnectionState();
+        if (currentConnectionState.isConnected) {
+            // If trying to connect to the same connection, do nothing
+            if (currentConnectionState.connectionIndex === index) {
+                this.connectionStatusManager.showTempMessage('Already connected');
+                return;
+            }
+            
+            // Ask for confirmation to disconnect and connect to new server
+            const newConnectionName = connection.name || `${connection.username}@${connection.host}`;
+            const currentHost = currentConnectionState.host || 'unknown';
+            
+            const choice = await vscode.window.showWarningMessage(
+                `Disconnect from ${currentHost} and connect to ${newConnectionName}?`,
+                { modal: true },
+                'Disconnect & Connect'
+            );
+            
+            if (choice !== 'Disconnect & Connect') {
+                return; // User cancelled
+            }
+            
+            // Disconnect first
+            await vscode.commands.executeCommand('remoteFileBrowser.disconnect');
+            
+            // Small delay to ensure disconnect completes
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        
         try {
             let connectionConfig = { ...connection };
             const connectionId = CredentialManager.generateConnectionId(connection);
@@ -357,26 +404,56 @@ export class ConnectionManagerView {
             // Send connection data to main extension with connection index
             vscode.commands.executeCommand('remoteFileBrowser.connectDirect', connectionConfig, index);
             
-            // Close the connection manager panel
-            this.panel?.dispose();
-            
         } catch (error) {
             // Don't show error here - let the main extension handle it
-            // since the panel closes and the error won't be visible
             console.error('Connection manager error:', error);
         }
     }
 
-    private loadConnections() {
+    private async loadConnections() {
         if (!this.panel) return;
 
         const config = vscode.workspace.getConfiguration('remoteFileBrowser');
         const connections = config.get<any[]>('connections', []);
         
+        // Get current connection state
+        const connectionState = await this.getCurrentConnectionState();
+        
         this.panel.webview.postMessage({
             type: 'loadConnections',
-            data: connections
+            data: connections,
+            currentConnection: connectionState
         });
+    }
+
+    private async getCurrentConnectionState(): Promise<{isConnected: boolean, host?: string, connectionIndex?: number}> {
+        try {
+            const connectionManager = getConnectionManager();
+            const connectionInfo = connectionManager.getCurrentConnectionInfo();
+            
+            if (!connectionInfo.isConnected || !connectionInfo.config) {
+                return { isConnected: false };
+            }
+
+            // Find the connection index in saved connections
+            const config = vscode.workspace.getConfiguration('remoteFileBrowser');
+            const connections = config.get<any[]>('connections', []);
+            
+            const connectionIndex = connections.findIndex(conn => 
+                conn.host === connectionInfo.config!.host && 
+                conn.port === connectionInfo.config!.port && 
+                conn.username === connectionInfo.config!.username &&
+                (conn.protocol || 'sftp') === connectionInfo.config!.protocol
+            );
+
+            return { 
+                isConnected: true, 
+                host: connectionInfo.host,
+                connectionIndex: connectionIndex >= 0 ? connectionIndex : undefined
+            };
+        } catch (error) {
+            return { isConnected: false };
+        }
     }
 
     private getWebviewContent(): string {
@@ -465,6 +542,18 @@ export class ConnectionManagerView {
             opacity: 0.8;
         }
         
+        .connecting {
+            background: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        
+        .connecting:hover {
+            background: var(--vscode-button-secondaryBackground);
+            opacity: 0.7;
+        }
+        
         .success {
             background: var(--vscode-terminal-ansiGreen);
             color: white;
@@ -542,6 +631,11 @@ export class ConnectionManagerView {
             margin-bottom: 10px;
             border-radius: 5px;
             border-left: 3px solid var(--vscode-textLink-foreground);
+        }
+        
+        .connection-item.connected {
+            border-left-color: var(--vscode-testing-iconPassed);
+            background: var(--vscode-inputValidation-infoBackground);
         }
         
         .connection-header {
@@ -804,9 +898,19 @@ export class ConnectionManagerView {
 
         // Global functions for onclick handlers
         function connectToConnection(index) {
+            // Set connecting state immediately
+            currentConnection.connectingIndex = index;
+            renderConnections();
+            
             vscode.postMessage({
                 type: 'connectToConnection',
                 index: index
+            });
+        }
+
+        function disconnect() {
+            vscode.postMessage({
+                type: 'disconnect'
             });
         }
 
@@ -825,10 +929,13 @@ export class ConnectionManagerView {
         }
 
         // Load connections
+        let currentConnection = { isConnected: false };
+        
         window.addEventListener('message', event => {
             const message = event.data;
             if (message.type === 'loadConnections') {
                 connections = message.data;
+                currentConnection = message.currentConnection || { isConnected: false };
                 renderConnections();
             } else if (message.type === 'keyFileSelected') {
                 document.getElementById('keyPath').value = message.path;
@@ -847,6 +954,12 @@ export class ConnectionManagerView {
                 document.getElementById('cancelBtn').style.display = 'inline-block';
                 document.getElementById('addNewConnectionBtn').style.display = 'none';
                 showConnectionForm();
+            } else if (message.type === 'clearConnecting') {
+                // Clear connecting state
+                if (currentConnection.connectingIndex !== undefined) {
+                    delete currentConnection.connectingIndex;
+                    renderConnections();
+                }
             }
         });
 
@@ -1085,10 +1198,27 @@ export class ConnectionManagerView {
                 return;
             }
 
-            container.innerHTML = connections.map((conn, index) => \`
-                <div class="connection-item">
+            container.innerHTML = connections.map((conn, index) => {
+                const isCurrentConnection = currentConnection.isConnected && currentConnection.connectionIndex === index;
+                const isConnecting = currentConnection.connectingIndex === index;
+                
+                let connectButtonHtml;
+                if (isCurrentConnection) {
+                    connectButtonHtml = '<button type="button" onclick="disconnect()" class="danger">Disconnect</button>';
+                } else if (isConnecting) {
+                    connectButtonHtml = \`<button type="button" class="connecting" disabled>Connecting...</button>\`;
+                } else {
+                    connectButtonHtml = \`<button type="button" onclick="connectToConnection(\${index})">Connect</button>\`;
+                }
+                
+                const connectionStatus = isCurrentConnection 
+                    ? '<span style="color: var(--vscode-testing-iconPassed); font-weight: bold;"> ● Connected</span>'
+                    : '';
+                
+                return \`
+                <div class="connection-item\${isCurrentConnection ? ' connected' : ''}">
                     <div class="connection-header">
-                        <div class="connection-name">\${conn.name || 'Unnamed Connection'}</div>
+                        <div class="connection-name">\${conn.name || 'Unnamed Connection'}\${connectionStatus}</div>
                         <div class="connection-details">
                             \${(conn.protocol || 'sftp').toUpperCase()}://\${conn.username}@\${conn.host}:\${conn.port !== undefined ? conn.port : (conn.protocol === 'ftp' ? 21 : 22)}
                             <br>Path: \${conn.remotePath || '/'} | Auth: \${conn.authType?.toLowerCase() === 'key' ? 'SSH Key' : 'Password'}
@@ -1097,14 +1227,15 @@ export class ConnectionManagerView {
                     </div>
                     <div class="connection-actions">
                         <div class="button-group">
-                            <button onclick="connectToConnection(\${index})">Connect</button>
-                            <button onclick="editConnection(\${index})">Edit</button>
-                            <button onclick="cloneConnection(\${index})">Clone</button>
-                            <button onclick="deleteConnection(\${index})" class="danger">Delete</button>
+                            \${connectButtonHtml}
+                            <button type="button" onclick="editConnection(\${index})">Edit</button>
+                            <button type="button" onclick="cloneConnection(\${index})">Clone</button>
+                            <button type="button" onclick="deleteConnection(\${index})" class="danger">Delete</button>
                         </div>
                     </div>
                 </div>
-            \`).join('');
+                \`;
+            }).join('');
         }
 
         function showConnectionForm() {
