@@ -9,6 +9,7 @@ node_modules/
 
 # VSCode extension files
 *.vsix
+!remote-file-browser-latest.vsix
 
 # OS generated files
 .DS_Store

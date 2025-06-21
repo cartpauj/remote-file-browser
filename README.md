@@ -478,9 +478,29 @@ If you see "keyring couldn't be identified":
 Future versions will include better multi-window isolation to prevent these issues.
 
 
-## Building and Installation
+## Installation
 
-### Installing from Source
+### Manual Installation (Cursor Users)
+
+**For Cursor users**, you can install this extension manually using the pre-built VSIX package:
+
+1. **Download the VSIX package**:
+   - Download `remote-file-browser-latest.vsix` from the [GitHub repository](https://github.com/cartpauj/remote-file-browser)
+
+2. **Install in Cursor**:
+   - Open Cursor
+   - Press `Cmd+Shift+P` (Mac) or `Ctrl+Shift+P` (Windows/Linux)
+   - Type "install from vsix" and select "Extensions: Install from VSIX..."
+   - Browse to the downloaded `remote-file-browser-latest.vsix` file
+   - Select the file to install
+
+3. **Restart Cursor** to activate the extension
+
+**For VSCode users**, this extension is available in the marketplace, so you don't need manual installation unless you specifically want the latest development version.
+
+### Building and Installation
+
+#### Installing from Source
 
 1. **Clone the repository**:
    ```bash
