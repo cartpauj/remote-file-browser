@@ -785,6 +785,21 @@ export class ConnectionManagerView {
                     <small style="color: var(--vscode-descriptionForeground);">Connect without credentials (username/password optional)</small>
                 </div>
                 
+                <div class="form-group" id="ftpsGroup" style="display: none;">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="enableFTPS" name="enableFTPS">
+                        <label for="enableFTPS">Enable FTPS (FTP over TLS)</label>
+                    </div>
+                    <div id="ftpsModeGroup" style="display: none; margin-top: 10px;">
+                        <label for="ftpsMode">FTPS Mode:</label>
+                        <select id="ftpsMode" name="ftpsMode">
+                            <option value="explicit">Explicit FTPS (Port 21, upgrade to TLS)</option>
+                            <option value="implicit">Implicit FTPS (Port 990, TLS from start)</option>
+                        </select>
+                    </div>
+                    <small style="color: var(--vscode-descriptionForeground);">Encrypt FTP connection with TLS for secure data transfer</small>
+                </div>
+                
                 <div class="form-group">
                     <label for="host">Host:</label>
                     <input type="text" id="host" name="host" placeholder="example.com or 192.168.1.100" required>
@@ -1006,6 +1021,9 @@ export class ConnectionManagerView {
                 keyPath: formData.get('keyPath'),
                 passphrase: formData.get('passphrase'),
                 anonymous: formData.get('anonymous') === 'on',
+                // FTPS settings
+                enableFTPS: formData.get('enableFTPS') === 'on',
+                ftpsMode: formData.get('ftpsMode') || 'explicit',
                 // Advanced connection settings
                 connectionTimeout: formData.get('connectionTimeout') ? parseInt(formData.get('connectionTimeout')) : undefined,
                 operationTimeout: formData.get('operationTimeout') ? parseInt(formData.get('operationTimeout')) : undefined,
@@ -1042,12 +1060,13 @@ export class ConnectionManagerView {
             const anonymousGroup = document.getElementById('anonymousGroup');
             const anonymousCheckbox = document.getElementById('anonymous');
             const authTypeGroup = document.getElementById('authTypeGroup');
+            const ftpsGroup = document.getElementById('ftpsGroup');
             
             const authTypeSelect = document.getElementById('authType');
             
             if (e.target.value === 'sftp') {
                 // Only set default port if field is empty or has FTP default
-                if (!port.value || port.value === '21') {
+                if (!port.value || port.value === '21' || port.value === '990') {
                     port.value = '22';
                 }
                 // Only update timeout if it's still at the default value
@@ -1057,6 +1076,9 @@ export class ConnectionManagerView {
                 // Hide anonymous option for SFTP
                 anonymousGroup.style.display = 'none';
                 anonymousCheckbox.checked = false;
+                
+                // Hide FTPS options for SFTP
+                ftpsGroup.style.display = 'none';
                 
                 // Show authentication dropdown for SFTP (has multiple options)
                 authTypeGroup.style.display = 'block';
@@ -1080,6 +1102,9 @@ export class ConnectionManagerView {
                 }
                 // Show anonymous option for FTP
                 anonymousGroup.style.display = 'block';
+                
+                // Show FTPS options for FTP
+                ftpsGroup.style.display = 'block';
                 
                 // Hide authentication dropdown for FTP (only password supported)
                 authTypeGroup.style.display = 'none';
@@ -1120,6 +1145,44 @@ export class ConnectionManagerView {
                 passphraseGroup.style.display = 'none';
                 // Show password field for password authentication
                 passwordGroup.style.display = 'block';
+            }
+        });
+
+        // FTPS checkbox change handler
+        document.getElementById('enableFTPS').addEventListener('change', (e) => {
+            const ftpsModeGroup = document.getElementById('ftpsModeGroup');
+            const port = document.getElementById('port');
+            const ftpsMode = document.getElementById('ftpsMode');
+            
+            if (e.target.checked) {
+                ftpsModeGroup.style.display = 'block';
+                // Update port based on FTPS mode when FTPS is enabled
+                if (ftpsMode.value === 'implicit' && (port.value === '21' || port.value === '')) {
+                    port.value = '990';
+                } else if (ftpsMode.value === 'explicit' && port.value === '990') {
+                    port.value = '21';
+                }
+            } else {
+                ftpsModeGroup.style.display = 'none';
+                // Reset to standard FTP port when FTPS is disabled
+                if (port.value === '990') {
+                    port.value = '21';
+                }
+            }
+        });
+
+        // FTPS mode change handler
+        document.getElementById('ftpsMode').addEventListener('change', (e) => {
+            const enableFTPS = document.getElementById('enableFTPS');
+            const port = document.getElementById('port');
+            
+            if (enableFTPS.checked) {
+                // Update port based on FTPS mode
+                if (e.target.value === 'implicit' && (port.value === '21' || port.value === '')) {
+                    port.value = '990';
+                } else if (e.target.value === 'explicit' && port.value === '990') {
+                    port.value = '21';
+                }
             }
         });
 
@@ -1304,6 +1367,10 @@ export class ConnectionManagerView {
             document.getElementById('keyPath').value = conn.keyPath || '';
             document.getElementById('passphrase').value = conn.passphrase || '';
 
+            // FTPS settings
+            document.getElementById('enableFTPS').checked = conn.enableFTPS || false;
+            document.getElementById('ftpsMode').value = conn.ftpsMode || 'explicit';
+
             // Advanced connection settings - show defaults if not set
             const protocolDefault = conn.protocol === 'ftp' ? '30000' : '20000';
             document.getElementById('connectionTimeout').value = conn.connectionTimeout || protocolDefault;
@@ -1330,6 +1397,10 @@ export class ConnectionManagerView {
             // Trigger keep-alive change to show/hide interval field
             const keepAliveEvent = new Event('change');
             document.getElementById('enableKeepAlive').dispatchEvent(keepAliveEvent);
+
+            // Trigger FTPS change to show/hide mode selection
+            const ftpsEvent = new Event('change');
+            document.getElementById('enableFTPS').dispatchEvent(ftpsEvent);
 
             // Update credential requirements after setting anonymous checkbox
             updateCredentialRequirements();

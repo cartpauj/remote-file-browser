@@ -5,6 +5,23 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.0] - 2025-06-21
+
+### Added
+- **FTPS (FTP over TLS) Support**: Secure FTP connections with TLS encryption
+  - Enable FTPS checkbox in FTP connection settings
+  - Support for both Explicit FTPS (port 21, upgrade to TLS) and Implicit FTPS (port 990, TLS from start)
+  - Automatic port switching based on FTPS mode selection
+  - Full integration with basic-ftp library TLS capabilities
+- **URL Protocol Stripping**: Automatically strip http:// and https:// from host fields
+  - Prevents connection errors when users paste web URLs into host fields
+  - Applied to both SFTP and FTP connection types
+  - Maintains clean host configuration in saved connections
+
+### Improved
+- **Enhanced Connection Form**: Better organization of protocol-specific settings
+- **Smart Port Management**: Automatic port updates based on protocol and security settings
+
 ## [3.2.2] - 2025-06-21
 
 ### Fixed

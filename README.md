@@ -14,7 +14,7 @@ Edit remote files seamlessly in VSCode/Cursor with instant access and automatic 
 
 ⬆️ **One-Click File Upload** - Push local files to remote servers with a simple right-click menu
 
-🌐 **Multiple Protocol Support** - Works with SFTP and FTP connections, including anonymous FTP
+🌐 **Multiple Protocol Support** - Works with SFTP, FTP, and secure FTPS (FTP over TLS) connections, including anonymous FTP
 
 ⚡ **Quick Connect** - Save multiple server configurations and connect with a single click
 
@@ -42,13 +42,14 @@ Edit remote files seamlessly in VSCode/Cursor with instant access and automatic 
    - Click the green **"➕ Add New Connection"** button to show the connection form
    - Fill out the connection form:
      - **Connection Name**: A friendly name for your server
-     - **Protocol**: SFTP (recommended) or FTP
+     - **Protocol**: SFTP (recommended), FTP, or secure FTPS
      - **Host**: Your server's IP address or domain name
-     - **Port**: Usually 22 for SFTP, 21 for FTP
+     - **Port**: Usually 22 for SFTP, 21 for FTP, or 990 for implicit FTPS
      - **Username**: Your server username (optional for anonymous FTP)
      - **Authentication**: Choose Password or SSH Key (SFTP only - supports OpenSSH and PuTTY .ppk v2/v3 formats)
      - **Password**: Optional - enter to store securely, or leave empty to prompt during connection
      - **Anonymous FTP**: Check this box for anonymous FTP access (FTP only)
+     - **FTPS Security**: For FTP connections, enable FTPS for encrypted TLS connections (Explicit/Implicit modes)
      - **Remote Path**: Starting directory (usually `/`)
 
 3. **Save and Connect**

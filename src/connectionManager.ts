@@ -15,6 +15,9 @@ export interface ConnectionConfig {
     keyPath?: string;
     passphrase?: string;
     anonymous?: boolean;
+    // FTP over TLS settings
+    enableFTPS?: boolean;          // Enable FTP over TLS (default: false)
+    ftpsMode?: 'explicit' | 'implicit'; // FTPS mode (default: 'explicit')
     // Connection timeout and retry settings
     connectionTimeout?: number;     // Connection timeout in milliseconds (default: 20000 for SFTP, 30000 for FTP)
     operationTimeout?: number;      // File operation timeout in milliseconds (default: 60000)
@@ -387,8 +390,11 @@ export class ConnectionManager {
                         }
                     }
                     
+                    // Strip http:// and https:// from host if present
+                    const cleanHost = this.config.host.replace(/^https?:\/\//, '');
+                    
                     connectOptions = {
-                        host: this.config.host,
+                        host: cleanHost,
                         port: this.config.port,
                         username: this.config.username,
                         privateKey: privateKeyContent
@@ -414,8 +420,11 @@ export class ConnectionManager {
             } else {
                 
                 // Password authentication - only include password-related options
+                // Strip http:// and https:// from host if present
+                const cleanHost = this.config.host.replace(/^https?:\/\//, '');
+                
                 connectOptions = {
-                    host: this.config.host,
+                    host: cleanHost,
                     port: this.config.port,
                     username: this.config.username,
                     password: this.config.password
@@ -471,12 +480,22 @@ export class ConnectionManager {
                 this.statusManager.showAuthenticating(this.config.host);
             }
             
-            await this.ftpClient.access({
-                host: this.config.host,
+            // Strip http:// and https:// from host if present
+            const cleanHost = this.config.host.replace(/^https?:\/\//, '');
+            
+            const accessOptions: any = {
+                host: cleanHost,
                 port: this.config.port,
                 user: username,
                 password: password
-            });
+            };
+
+            // Add FTPS support if enabled
+            if (this.config.enableFTPS) {
+                accessOptions.secure = this.config.ftpsMode === 'implicit' ? 'implicit' : true;
+            }
+            
+            await this.ftpClient.access(accessOptions);
         } catch (error) {
             console.error('FTP connection failed:', error);
             throw new Error(`FTP connection failed: ${(error as any).message || error}`);
