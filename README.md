@@ -26,6 +26,10 @@ Edit remote files seamlessly in VSCode/Cursor with instant access and automatic 
 
 ⚠️ **Overwrite Protection** - Built-in safeguards prevent accidental file replacement
 
+📊 **Enhanced Connection Progress** - Clear status bar indicators and visual feedback for all connection activities
+
+🔇 **Non-Intrusive Notifications** - Smart notification system that uses status bar messages instead of disruptive popups
+
 ## Getting Started
 
 ### Initial Setup
@@ -52,6 +56,41 @@ Edit remote files seamlessly in VSCode/Cursor with instant access and automatic 
    - Click the **"Connect"** button next to your new connection
    - If no password was stored, you'll be prompted to enter it
    - Choose **"Yes"** to save credentials securely for future connections
+
+### Enhanced Connection Experience
+
+#### Visual Connection Progress
+When connecting to servers, you'll see clear visual feedback:
+
+- **Status Bar Progress**: Detailed connection stages appear in the status bar:
+  - "🔄 Establishing connection to [host]..."
+  - "🔄 Authenticating to [host]..."
+  - "🔄 Loading file structure from [host]..."
+  - "✅ Connected to [host]" (briefly, then shows persistent connected state)
+
+- **Welcome View Spinners**: Connection items show spinning indicators during connection attempts
+
+- **Persistent Connected State**: Once connected, the status bar shows "🔌 [host] ✖️" with:
+  - Click anywhere to disconnect immediately
+  - Tooltip: "Connected to [host] - Click to disconnect"
+  - Remains visible until disconnected
+
+#### Non-Intrusive Notifications
+The extension uses smart notification management:
+
+- **Status Bar Messages**: Success operations (file uploads, connections, etc.) appear briefly in the status bar instead of popup dialogs
+- **Critical Alerts Only**: Error messages, confirmations, and safety warnings still use popups when user attention is required
+- **Auto-Dismiss**: Status bar messages automatically disappear after 3-5 seconds
+- **Examples of Status Bar Messages**:
+  - "Password saved securely"
+  - "Uploaded filename.txt"
+  - "Connection deleted"
+  - "Temp files cleaned up"
+
+#### Retry and Error Handling
+- **Connection Retries**: Failed connections automatically retry with exponential backoff
+- **Status Updates**: Retry attempts show "🔄 Retrying connection to [host] (2/3)..."
+- **Smart Error Recovery**: Authentication failures offer retry options with new credentials
 
 ### Connection Management
 
@@ -100,7 +139,7 @@ Some users prefer different file opening behaviors. You can customize these in V
 - Files open instantly in your editor
 - Make changes and save normally (`Ctrl+S` / `Cmd+S`)
 - Changes are automatically uploaded to the remote server
-- You'll see a confirmation message when upload completes
+- You'll see a brief status bar confirmation: "Uploaded filename.txt"
 
 ### Uploading Local Files to Remote Server
 - Open any local file in VSCode/Cursor
@@ -179,8 +218,12 @@ You can rename or delete files and directories directly on the remote server:
 - Copy `/project/template/` to `/project/new-site/` (duplicate entire directory structure)
 
 ### Switching Servers
-- Click the **X** (disconnect) button in the remote files view
-- Select a different connection from the recent connections list
+You can disconnect and switch servers in multiple ways:
+
+- **Status Bar**: Click the persistent connection indicator "🔌 [host] ✖️" in the status bar
+- **Remote Files View**: Click the **X** (disconnect) button in the remote files toolbar  
+- **Command Palette**: Use "Remote File Browser: Disconnect from Remote Server"
+- **Welcome View**: Simply click a different connection to automatically disconnect and reconnect
 
 ## Anonymous FTP Support
 
@@ -285,7 +328,7 @@ Follow these steps to upload local files to your remote server:
 
 3. **View Progress**:
    - You'll see a progress indicator during upload
-   - Success message: "Successfully pushed filename.txt to /remote/path/"
+   - Status bar confirmation: "Pushed filename.txt"
    - The remote file tree will refresh to show your uploaded file
 
 **Requirements**:
@@ -377,8 +420,8 @@ When you open remote files, they're downloaded to your local system in an organi
 
 ### Auto-Sync on Save
 - When you save a file (`Ctrl+S` / `Cmd+S`), changes are automatically uploaded
-- You'll see a confirmation message: "Uploaded filename.txt to remote server"
-- If upload fails, you'll see an error message with details
+- You'll see a status bar confirmation: "Uploaded filename.txt"
+- If upload fails, you'll see an error popup with details
 
 ## Managing Temporary Files
 
@@ -416,7 +459,7 @@ When you open remote files, they're downloaded to your local system in an organi
 - Deletes the entire `/tmp/remote-file-browser/` directory
 - Removes all downloaded files from all connections
 - Clears file watchers to prevent memory leaks
-- Shows count of deleted files when complete
+- Shows status bar message with count of deleted files
 
 ### After Cleanup
 - Any files you have open will no longer sync when saved

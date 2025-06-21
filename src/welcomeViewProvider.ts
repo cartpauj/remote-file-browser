@@ -38,6 +38,11 @@ export class WelcomeViewProvider implements vscode.TreeDataProvider<WelcomeItem>
         return this.connectingIndexes.has(index);
     }
 
+    clearAllConnecting(): void {
+        this.connectingIndexes.clear();
+        this.refresh();
+    }
+
     // Debounce mechanism for connection clicks (500ms cooldown)
     static isClickTooSoon(index: number): boolean {
         const now = Date.now();

@@ -5,6 +5,38 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.0] - 2025-06-21
+
+### Added
+- **Enhanced Connection Progress Indicators**: Comprehensive visual feedback system for connection attempts
+  - Status bar shows detailed connection stages: "Establishing connection...", "Authenticating...", "Loading files..."
+  - Welcome view spinners synchronized across both connection manager and welcome view connections
+  - Persistent connected state in status bar: "🔌 [host] ✖️" with clickable disconnect functionality
+  - Connection retry attempts display progress counters: "Retrying connection (2/3)..."
+- **Non-Intrusive Notification System**: Smart notification management for better user experience
+  - Success confirmations moved to brief status bar messages instead of popup dialogs
+  - Auto-dismissing notifications (3-5 seconds) for file operations, credential storage, and connection management
+  - Status bar messages for: "Password saved securely", "Uploaded filename.txt", "Connection deleted", "Temp files cleaned up"
+  - Critical alerts (errors, confirmations, safety warnings) remain as popups when user attention is required
+
+### Enhanced
+- **Connection Status Management**: Improved connection state tracking and visual feedback
+  - Status bar connection indicator remains visible throughout connection session
+  - Click-to-disconnect functionality directly from status bar
+  - Tooltip guidance: "Connected to [host] - Click to disconnect"
+  - Consistent spinner behavior regardless of connection initiation method (welcome view vs connection manager)
+- **User Experience**: Eliminated 26+ annoying popup messages while preserving critical safety notifications
+  - File operation confirmations now appear as brief status bar notifications
+  - Connection management operations provide subtle feedback without interrupting workflow
+  - Error messages and data loss prevention confirmations remain as attention-demanding popups
+- **Documentation**: Updated README.md with comprehensive coverage of new connection experience features
+
+### Technical
+- **Connection Status Manager**: New ConnectionStatusManager class handles all status bar notifications
+  - Centralized status management with automatic cleanup and state transitions
+  - Temporary message system with configurable duration and restoration of previous state
+  - Integration with existing connection lifecycle for seamless status updates
+
 ## [3.1.0] - 2025-06-20
 
 ### Added

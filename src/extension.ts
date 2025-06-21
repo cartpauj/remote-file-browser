@@ -43,6 +43,9 @@ export function activate(context: vscode.ExtensionContext) {
     
     // Set the welcome view provider on the connection manager for updates
     connectionManagerView.setWelcomeViewProvider(welcomeViewProvider);
+    
+    // Set up connection status manager between connection manager and connection manager view
+    connectionManager.setStatusManager(connectionManagerView.getConnectionStatusManager());
 
     treeDataProvider = vscode.window.createTreeView('remoteFilesList', {
         treeDataProvider: remoteFileProvider,
@@ -125,8 +128,8 @@ export function activate(context: vscode.ExtensionContext) {
             await openRemoteFile(item);
         }),
 
-        vscode.commands.registerCommand('remoteFileBrowser.connectDirect', async (connectionConfig) => {
-            await connectDirect(connectionConfig);
+        vscode.commands.registerCommand('remoteFileBrowser.connectDirect', async (connectionConfig, connectionIndex) => {
+            await connectDirect(connectionConfig, connectionIndex);
         }),
 
         vscode.commands.registerCommand('remoteFileBrowser.cleanupTempFiles', async () => {
@@ -234,7 +237,7 @@ async function connectFromConfig() {
     }
 }
 
-async function connectDirect(connectionConfig: any) {
+async function connectDirect(connectionConfig: any, connectionIndex?: number) {
     try {
         await connectionManager.connect(connectionConfig);
         remoteFileProvider.resetToDefaultDirectory();
@@ -242,8 +245,19 @@ async function connectDirect(connectionConfig: any) {
         updateNavigationContext();
         remoteFileProvider.refresh();
         
-        vscode.window.showInformationMessage(`Connected to ${connectionConfig.host} via ${(connectionConfig.protocol || 'SFTP').toUpperCase()}`);
+        // Show success in status bar instead of popup
+        connectionManagerView.getConnectionStatusManager().showSuccess(connectionConfig.host);
+        
+        // Clear welcome view spinner if connection index is provided
+        if (connectionIndex !== undefined && welcomeViewProvider) {
+            welcomeViewProvider.setConnecting(connectionIndex, false);
+        }
     } catch (error) {
+        // Clear welcome view spinner on failure too
+        if (connectionIndex !== undefined && welcomeViewProvider) {
+            welcomeViewProvider.setConnecting(connectionIndex, false);
+        }
+        
         // Simple error handling - let calling function handle retries
         throw error;
     }
@@ -286,7 +300,7 @@ async function connectToSavedConnection(connectionIndex: number) {
                     if (savePassphrase === 'Yes') {
                         const saved = await credentialManager.storePassphrase(connectionId, passphrase);
                         if (saved) {
-                            vscode.window.showInformationMessage('Passphrase saved securely');
+                            connectionManagerView.getConnectionStatusManager().showTempMessage('Passphrase saved securely');
                         }
                     }
                 }
@@ -316,7 +330,7 @@ async function connectToSavedConnection(connectionIndex: number) {
                 if (savePassword === 'Yes') {
                     const saved = await credentialManager.storePassword(connectionId, password);
                     if (saved) {
-                        vscode.window.showInformationMessage('Password saved securely');
+                        connectionManagerView.getConnectionStatusManager().showTempMessage('Password saved securely');
                     }
                 }
             }
@@ -330,7 +344,8 @@ async function connectToSavedConnection(connectionIndex: number) {
         updateNavigationContext();
         remoteFileProvider.refresh();
         
-        vscode.window.showInformationMessage(`Connected to ${connection.host} via ${(connection.protocol || 'SFTP').toUpperCase()}`);
+        // Show success in status bar instead of popup
+        connectionManagerView.getConnectionStatusManager().showSuccess(connection.host);
     } catch (error) {
         // Check if this is likely an authentication error
         const errorMessage = error?.toString() || '';
@@ -438,7 +453,8 @@ async function connectToRemoteServer() {
         updateNavigationContext();
         remoteFileProvider.refresh();
         
-        vscode.window.showInformationMessage(`Connected to ${host} via ${protocol}`);
+        // Show success in status bar instead of popup
+        connectionManagerView.getConnectionStatusManager().showSuccess(host);
     } catch (error) {
         vscode.window.showErrorMessage(`Failed to connect: ${error}`);
     }
@@ -452,7 +468,8 @@ async function disconnectFromRemoteServer() {
         updateNavigationContext();
         remoteFileProvider.refresh();
         
-        vscode.window.showInformationMessage('Disconnected from remote server');
+        // Show disconnected status in status bar instead of popup
+        connectionManagerView.getConnectionStatusManager().showDisconnected();
     } catch (error) {
         vscode.window.showErrorMessage(`Failed to disconnect: ${error}`);
     }
@@ -571,7 +588,7 @@ async function openRemoteFile(item: any) {
                     const updatedContent = savedDoc.getText();
                     await connectionManager.writeFile(item.path, updatedContent);
                     const fileName = path.basename(item.path);
-                    vscode.window.showInformationMessage(`Uploaded ${fileName} to remote server`);
+                    connectionManagerView.getConnectionStatusManager().showTempMessage(`Uploaded ${fileName}`);
                 } catch (error) {
                     const errorMessage = getUserFriendlyErrorMessage(error, 'save file');
                     vscode.window.showErrorMessage(errorMessage);
@@ -684,9 +701,9 @@ async function cleanupCurrentConnectionTempFiles() {
             }
             
             if (deletedCount > 0) {
-                vscode.window.showInformationMessage(`Deleted ${deletedCount} temporary files for connection: ${connectionId}`);
+                connectionManagerView.getConnectionStatusManager().showTempMessage(`Deleted ${deletedCount} temp files`);
             } else {
-                vscode.window.showInformationMessage(`No temporary files found for connection: ${connectionId}`);
+                connectionManagerView.getConnectionStatusManager().showTempMessage('No temp files found');
             }
             
         } catch (error) {
@@ -761,7 +778,7 @@ async function cleanupAllTempFiles() {
         } catch (error) {
         }
         
-        vscode.window.showInformationMessage(`Cleaned up ${deletedCount} temporary file(s)`);
+        connectionManagerView.getConnectionStatusManager().showTempMessage(`Cleaned up ${deletedCount} temp files`);
         
     } catch (error) {
         vscode.window.showErrorMessage(`Failed to cleanup temp files: ${error}`);
@@ -888,9 +905,7 @@ async function pushToRemote(resourceUri: vscode.Uri) {
                 
                 // Show success message
                 const targetPath = path.dirname(remotePath);
-                vscode.window.showInformationMessage(
-                    `Successfully pushed ${fileName} to ${targetPath}`
-                );
+                connectionManagerView.getConnectionStatusManager().showTempMessage(`Pushed ${fileName}`);
 
                 // Refresh the remote file tree to show the new file
                 remoteFileProvider.refresh();
@@ -987,7 +1002,7 @@ async function deleteRemoteFile(item: any) {
                 await connectionManager.deleteFile(item.path, item.isDirectory);
                 progress.report({ increment: 100 });
                 
-                vscode.window.showInformationMessage(`Successfully deleted ${itemType} "${itemName}"`);
+                connectionManagerView.getConnectionStatusManager().showTempMessage(`Deleted ${itemName}`);
                 
                 // Refresh the remote file tree
                 remoteFileProvider.refresh();
@@ -1052,7 +1067,7 @@ async function renameRemoteFile(item: any) {
                 await connectionManager.renameFile(item.path, newPath);
                 progress.report({ increment: 100 });
                 
-                vscode.window.showInformationMessage(`Successfully renamed ${itemType} "${currentName}" to "${newName}"`);
+                connectionManagerView.getConnectionStatusManager().showTempMessage(`Renamed to ${newName}`);
                 
                 // Refresh the remote file tree
                 remoteFileProvider.refresh();
@@ -1142,7 +1157,7 @@ async function moveRemoteFile(item: any) {
                 await updateTempFileLocation(currentPath, targetPath);
                 progress.report({ increment: 100 });
                 
-                vscode.window.showInformationMessage(`Successfully moved ${itemType} to "${targetPath}"`);
+                connectionManagerView.getConnectionStatusManager().showTempMessage(`Moved to ${path.basename(targetPath)}`);
                 
                 // Refresh the remote file tree
                 remoteFileProvider.refresh();
@@ -1275,9 +1290,7 @@ async function updateEditorTab(oldTempUri: vscode.Uri, newTempUri: vscode.Uri, n
                 
                 // Show a notification about the tab update
                 const fileName = path.basename(newRemotePath);
-                vscode.window.showInformationMessage(
-                    `Editor tab updated: "${fileName}" now points to ${newRemotePath}`
-                );
+                connectionManagerView.getConnectionStatusManager().showTempMessage(`Updated tab: ${fileName}`);
                 
             }
         }
@@ -1471,7 +1484,7 @@ async function copyRemoteFile(item: any) {
                 await connectionManager.copyFile(currentPath, targetPath, item.isDirectory);
                 progress.report({ increment: 80 });
                 
-                vscode.window.showInformationMessage(`Successfully copied ${itemType} to "${targetPath}"`);
+                connectionManagerView.getConnectionStatusManager().showTempMessage(`Copied to ${path.basename(targetPath)}`);
                 
                 // Refresh the remote file tree
                 remoteFileProvider.refresh();
@@ -1661,7 +1674,7 @@ async function deleteConnectionFromWelcome(item: any) {
             
             connections.splice(connectionIndex, 1);
             await config.update('connections', connections, vscode.ConfigurationTarget.Global);
-            vscode.window.showInformationMessage('Connection deleted successfully');
+            connectionManagerView.getConnectionStatusManager().showTempMessage('Connection deleted');
             welcomeViewProvider.refresh();
         }
         
@@ -1682,6 +1695,11 @@ async function addNewConnectionFromWelcome() {
 export function deactivate() {
     if (connectionManager) {
         connectionManager.disconnect();
+    }
+    
+    // Clean up connection status manager
+    if (connectionManagerView) {
+        connectionManagerView.getConnectionStatusManager().dispose();
     }
     
     // Clean up file watchers on deactivation

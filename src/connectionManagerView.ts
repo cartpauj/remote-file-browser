@@ -3,19 +3,27 @@ import * as os from 'os';
 import * as path from 'path';
 import { CredentialManager } from './credentialManager';
 import { WelcomeViewProvider } from './welcomeViewProvider';
+import { ConnectionStatusManager } from './connectionStatusManager';
 
 export class ConnectionManagerView {
     private panel: vscode.WebviewPanel | undefined;
     private credentialManager: CredentialManager;
     private welcomeViewProvider: WelcomeViewProvider | undefined;
+    private connectionStatusManager: ConnectionStatusManager;
 
     constructor(private context: vscode.ExtensionContext) {
         this.credentialManager = new CredentialManager(context);
+        this.connectionStatusManager = new ConnectionStatusManager();
     }
 
     public setWelcomeViewProvider(welcomeViewProvider: WelcomeViewProvider) {
         this.welcomeViewProvider = welcomeViewProvider;
     }
+
+    public getConnectionStatusManager(): ConnectionStatusManager {
+        return this.connectionStatusManager;
+    }
+
 
     public showWithEdit(connectionIndex: number) {
         this.show();
@@ -88,7 +96,7 @@ export class ConnectionManagerView {
                 
                 connections.push(message.data);
                 await config.update('connections', connections, vscode.ConfigurationTarget.Global);
-                vscode.window.showInformationMessage('Connection added successfully');
+                this.connectionStatusManager.showTempMessage('Connection added');
                 this.loadConnections();
                 this.welcomeViewProvider?.refresh();
                 break;
@@ -108,7 +116,7 @@ export class ConnectionManagerView {
                 // Merge updated data with existing connection to preserve existing properties
                 connections[message.index] = { ...connections[message.index], ...message.data };
                 await config.update('connections', connections, vscode.ConfigurationTarget.Global);
-                vscode.window.showInformationMessage('Connection updated successfully');
+                this.connectionStatusManager.showTempMessage('Connection updated');
                 this.loadConnections();
                 this.welcomeViewProvider?.refresh();
                 break;
@@ -132,14 +140,14 @@ export class ConnectionManagerView {
                     
                     connections.splice(message.index, 1);
                     await config.update('connections', connections, vscode.ConfigurationTarget.Global);
-                    vscode.window.showInformationMessage('Connection deleted successfully');
+                    this.connectionStatusManager.showTempMessage('Connection deleted');
                     this.loadConnections();
                     this.welcomeViewProvider?.refresh();
                 }
                 break;
 
             case 'testConnection':
-                vscode.window.showInformationMessage('Connection test feature coming soon');
+                this.connectionStatusManager.showTempMessage('Test feature coming soon');
                 break;
 
             case 'browseKeyFile':
@@ -182,7 +190,7 @@ export class ConnectionManagerView {
                 try {
                     await vscode.workspace.fs.stat(vscode.Uri.file(tempDirPath));
                 } catch {
-                    vscode.window.showInformationMessage('No temporary files directory found. Connect to a server and open some files first.');
+                    this.connectionStatusManager.showTempMessage('Connect to a server first');
                     return;
                 }
                 
@@ -208,7 +216,7 @@ export class ConnectionManagerView {
                 if (confirmClone === 'Clone') {
                     connections.push(clonedConnection);
                     await config.update('connections', connections, vscode.ConfigurationTarget.Global);
-                    vscode.window.showInformationMessage('Connection cloned successfully');
+                    this.connectionStatusManager.showTempMessage('Connection cloned');
                     this.loadConnections();
                     this.welcomeViewProvider?.refresh();
                 }
@@ -259,7 +267,7 @@ export class ConnectionManagerView {
             }
         }, 500);
         
-        vscode.window.showInformationMessage('Opened terminal in temp files directory');
+        this.connectionStatusManager.showTempMessage('Terminal opened');
     }
 
     private async connectToSavedConnection(index: number) {
@@ -298,7 +306,7 @@ export class ConnectionManagerView {
                         if (savePassphrase === 'Yes') {
                             const saved = await this.credentialManager.storePassphrase(connectionId, passphrase);
                             if (saved) {
-                                vscode.window.showInformationMessage('Passphrase saved securely');
+                                this.connectionStatusManager.showTempMessage('Passphrase saved securely');
                             }
                         }
                     }
@@ -329,7 +337,7 @@ export class ConnectionManagerView {
                     if (savePassword === 'Yes') {
                         const saved = await this.credentialManager.storePassword(connectionId, password);
                         if (saved) {
-                            vscode.window.showInformationMessage('Password saved securely');
+                            this.connectionStatusManager.showTempMessage('Password saved securely');
                         }
                     }
                 }
@@ -338,11 +346,16 @@ export class ConnectionManagerView {
                 connectionConfig.password = password || connection.password;
             }
 
-            // Signal successful connection attempt and close panel
-            vscode.window.showInformationMessage(`Connecting to ${connection.host}...`);
+            // Show connection status in status bar
+            this.connectionStatusManager.showConnecting(connection.host);
             
-            // Send connection data to main extension
-            vscode.commands.executeCommand('remoteFileBrowser.connectDirect', connectionConfig);
+            // Show spinner in welcome view if this connection is in the recent connections
+            if (this.welcomeViewProvider) {
+                this.welcomeViewProvider.setConnecting(index, true);
+            }
+            
+            // Send connection data to main extension with connection index
+            vscode.commands.executeCommand('remoteFileBrowser.connectDirect', connectionConfig, index);
             
             // Close the connection manager panel
             this.panel?.dispose();

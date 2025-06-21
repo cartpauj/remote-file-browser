@@ -2,6 +2,7 @@ import SftpClient from 'pure-js-sftp';
 import { Client as FtpClient } from 'basic-ftp';
 import * as fs from 'fs';
 import { Readable, PassThrough } from 'stream';
+import { ConnectionStatusManager } from './connectionStatusManager';
 
 export interface ConnectionConfig {
     protocol: 'sftp' | 'ftp';
@@ -48,6 +49,7 @@ export class ConnectionManager {
     private keepAliveInterval?: NodeJS.Timeout;
     private connectionRetries = 0;
     private ftpConnectionLock = false;
+    private statusManager?: ConnectionStatusManager;
     
     // Health monitoring properties
     private lastSuccessfulOperation?: Date;
@@ -56,6 +58,10 @@ export class ConnectionManager {
     private connectionStartTime?: Date;
     private keepAliveStatus: 'active' | 'inactive' | 'failing' = 'inactive';
     private lastError?: string;
+
+    public setStatusManager(statusManager: ConnectionStatusManager) {
+        this.statusManager = statusManager;
+    }
 
     async connect(config: ConnectionConfig): Promise<void> {
         this.config = config;
@@ -85,17 +91,30 @@ export class ConnectionManager {
         
         for (let attempt = 0; attempt <= maxRetries; attempt++) {
             try {
+                if (attempt > 0 && this.statusManager) {
+                    this.statusManager.showRetrying(this.config.host, attempt, maxRetries);
+                }
+                
                 if (this.config.protocol === 'sftp') {
                     await this.connectSftp();
                 } else {
                     await this.connectFtp();
                 }
                 this.connectionRetries = 0;
+                
+                // Show success and initial file loading
+                if (this.statusManager) {
+                    this.statusManager.showLoadingFiles(this.config.host);
+                }
+                
                 return; // Success!
             } catch (error) {
                 this.connectionRetries = attempt + 1;
                 
                 if (attempt === maxRetries) {
+                    if (this.statusManager) {
+                        this.statusManager.showError(this.config.host, (error as any).message || String(error));
+                    }
                     throw error; // Final attempt failed
                 }
                 
@@ -359,6 +378,9 @@ export class ConnectionManager {
             
             
             try {
+                if (this.statusManager) {
+                    this.statusManager.showAuthenticating(this.config.host);
+                }
                 await this.sftpClient.connect(connectOptions);
             } catch (connectError: any) {
                 throw connectError;
@@ -399,6 +421,10 @@ export class ConnectionManager {
                 }
             }
 
+            if (this.statusManager) {
+                this.statusManager.showAuthenticating(this.config.host);
+            }
+            
             await this.ftpClient.access({
                 host: this.config.host,
                 port: this.config.port,
