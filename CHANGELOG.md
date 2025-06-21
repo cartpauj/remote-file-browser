@@ -5,6 +5,14 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.1] - 2025-06-21
+
+### Added
+- **User Manual Access**: Added "User Manual" option to welcome view
+  - Accessible directly from the welcome screen below "Manage Connections"
+  - Opens README.md in read-only markdown preview mode
+  - Provides easy access to extension documentation and usage instructions
+
 ## [3.3.0] - 2025-06-21
 
 ### Added

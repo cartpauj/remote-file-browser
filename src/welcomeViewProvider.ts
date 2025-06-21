@@ -117,6 +117,16 @@ export class WelcomeViewProvider implements vscode.TreeDataProvider<WelcomeItem>
             }
         });
 
+        // User Manual button
+        items.push({
+            label: 'User Manual',
+            iconPath: new vscode.ThemeIcon('book'),
+            command: {
+                command: 'remoteFileBrowser.openUserManual',
+                title: 'User Manual'
+            }
+        });
+
         // Existing Connections collapsible section
         const connections = this.getExistingConnections();
         if (connections.length > 0) {

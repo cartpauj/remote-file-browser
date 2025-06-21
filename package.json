@@ -2,7 +2,7 @@
 	"name": "remote-file-browser",
 	"displayName": "Remote File Browser",
 	"description": "Browse remote files via SFTP/FTP without downloading them locally",
-	"version": "3.3.0",
+	"version": "3.3.1",
 	"publisher": "cartpauj",
 	"icon": "icon.png",
 	"repository": {
@@ -142,6 +142,11 @@
 			{
 				"command": "remoteFileBrowser.addNewConnectionFromWelcome",
 				"title": "Add New Connection",
+				"category": "Remote File Browser"
+			},
+			{
+				"command": "remoteFileBrowser.openUserManual",
+				"title": "User Manual",
 				"category": "Remote File Browser"
 			}
 		],
@@ -299,6 +304,9 @@
 				{
 					"command": "remoteFileBrowser.downloadFile",
 					"when": "remoteFileBrowser.connected"
+				},
+				{
+					"command": "remoteFileBrowser.openUserManual"
 				}
 			]
 		},

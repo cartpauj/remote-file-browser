@@ -203,6 +203,10 @@ export function activate(context: vscode.ExtensionContext) {
             await addNewConnectionFromWelcome();
         }),
 
+        vscode.commands.registerCommand('remoteFileBrowser.openUserManual', async () => {
+            await openUserManual(context);
+        }),
+
         treeDataProvider,
         welcomeView
     );
@@ -1731,6 +1735,18 @@ async function addNewConnectionFromWelcome() {
         connectionManagerView.showWithAddNew();
     } catch (error) {
         vscode.window.showErrorMessage('Failed to open add new connection');
+    }
+}
+
+async function openUserManual(context: vscode.ExtensionContext) {
+    try {
+        // Get the path to the extension's README.md file
+        const readmePath = vscode.Uri.joinPath(context.extensionUri, 'readme.md');
+        
+        // Open the README.md file using markdown preview (truly read-only)
+        await vscode.commands.executeCommand('markdown.showPreview', readmePath);
+    } catch (error) {
+        vscode.window.showErrorMessage('Failed to open user manual');
     }
 }
 
