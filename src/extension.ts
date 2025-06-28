@@ -8,19 +8,23 @@ import { ConnectionManager } from './connectionManager';
 import { ConnectionManagerView } from './connectionManagerView';
 import { CredentialManager } from './credentialManager';
 import { WelcomeViewProvider } from './welcomeViewProvider';
+import { GlobalStateManager } from './globalStateManager';
 
 let remoteFileProvider: RemoteFileProvider;
 let connectionManager: ConnectionManager;
 let connectionManagerView: ConnectionManagerView;
 let credentialManager: CredentialManager;
 let welcomeViewProvider: WelcomeViewProvider;
+let globalStateManager: GlobalStateManager;
+
+// Debug output channel
+let debugOutput: vscode.OutputChannel;
 
 export function getConnectionManager(): ConnectionManager {
     return connectionManager;
 }
 let currentSelectedDirectory: RemoteFileItem | undefined;
 let treeDataProvider: vscode.TreeView<RemoteFileItem>;
-let isAnyConnectionInProgress = false; // Global flag to prevent all connection attempts
 
 
 // Global file watchers storage with connection tracking
@@ -30,16 +34,14 @@ interface FileWatcherInfo {
     remotePath: string;
 }
 
-declare global {
-    var remoteFileWatchers: Map<string, FileWatcherInfo> | undefined;
-}
-
 function generateConnectionId(config: any): string {
     return `${config.username}@${config.host}:${config.port}`;
 }
 
 export function activate(context: vscode.ExtensionContext) {
-
+    console.log('🚀 REMOTE FILE BROWSER EXTENSION ACTIVATED!');
+    
+    globalStateManager = GlobalStateManager.getInstance();
     connectionManager = new ConnectionManager();
     remoteFileProvider = new RemoteFileProvider(connectionManager);
     connectionManagerView = new ConnectionManagerView(context);
@@ -86,24 +88,17 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
 
-    // Register dynamic commands for each connection (up to 20 connections)
-    for (let i = 0; i < 20; i++) {
+    // Register dynamic commands for each connection
+    const MAX_SAVED_CONNECTIONS = 20;
+    for (let i = 0; i < MAX_SAVED_CONNECTIONS; i++) {
         context.subscriptions.push(
             vscode.commands.registerCommand(`remoteFileBrowser.connectFromWelcome.${i}`, async () => {
-                // GLOBAL LOCK: If any connection is in progress, ignore all clicks
-                if (isAnyConnectionInProgress) {
-                    return;
-                }
-                
-                // Set global lock
-                isAnyConnectionInProgress = true;
                 welcomeViewProvider.setConnecting(i, true);
                 
                 try {
                     await connectToSavedConnection(i);
                 } finally {
                     welcomeViewProvider.setConnecting(i, false);
-                    isAnyConnectionInProgress = false; // Release global lock
                 }
             })
         );
@@ -255,8 +250,7 @@ async function connectDirect(connectionConfig: any, connectionIndex?: number) {
         updateNavigationContext();
         remoteFileProvider.refresh();
         
-        // Show success in status bar instead of popup
-        connectionManagerView.getConnectionStatusManager().showSuccess(connectionConfig.host);
+        // Success status will be shown after initial file listing completes in RemoteFileProvider
         
         // Clear connecting state and refresh connection manager
         connectionManagerView.clearConnectingState();
@@ -278,8 +272,108 @@ async function connectDirect(connectionConfig: any, connectionIndex?: number) {
     }
 }
 
-async function connectToSavedConnection(connectionIndex: number) {
+async function handleSSHKeyAuthentication(connection: any, connectionId: string): Promise<string | undefined> {
+    let passphrase = await credentialManager.getPassphrase(connectionId);
     
+    if (!passphrase && (connection.passphrase === undefined || connection.passphrase === '')) {
+        passphrase = await vscode.window.showInputBox({
+            prompt: `Enter passphrase for SSH key (leave empty if none): ${connection.keyPath}`,
+            password: true,
+            placeHolder: 'Leave empty if key has no passphrase'
+        });
+        
+        if (passphrase !== undefined && passphrase !== '') {
+            const saveChoice = await vscode.window.showQuickPick(
+                ['Yes', 'No'], 
+                { placeHolder: 'Save passphrase securely for future connections?' }
+            );
+            
+            if (saveChoice === 'Yes') {
+                const saved = await credentialManager.storePassphrase(connectionId, passphrase);
+                if (saved) {
+                    connectionManagerView.getConnectionStatusManager().showTempMessage('Passphrase saved securely');
+                }
+            }
+        }
+    }
+    
+    return passphrase;
+}
+
+async function handlePasswordAuthentication(connection: any, connectionId: string): Promise<string | undefined> {
+    let password = await credentialManager.getPassword(connectionId);
+    
+    if (!password) {
+        password = await vscode.window.showInputBox({
+            prompt: `Enter password for ${connection.username}@${connection.host}`,
+            password: true
+        });
+
+        if (!password) return undefined;
+        
+        const saveChoice = await vscode.window.showQuickPick(
+            ['Yes', 'No'], 
+            { placeHolder: 'Save password securely for future connections?' }
+        );
+        
+        if (saveChoice === 'Yes') {
+            const saved = await credentialManager.storePassword(connectionId, password);
+            if (saved) {
+                connectionManagerView.getConnectionStatusManager().showTempMessage('Password saved securely');
+            }
+        }
+    }
+    
+    return password;
+}
+
+function isAuthenticationError(error: any): boolean {
+    const errorMessage = error?.toString() || '';
+    return errorMessage.toLowerCase().includes('authentication') || 
+           errorMessage.toLowerCase().includes('login') ||
+           errorMessage.toLowerCase().includes('password') ||
+           errorMessage.toLowerCase().includes('credential') ||
+           errorMessage.toLowerCase().includes('unauthorized') ||
+           errorMessage.toLowerCase().includes('access denied') ||
+           errorMessage.toLowerCase().includes('all configured authentication methods failed') ||
+           (errorMessage.toLowerCase().includes('handshake') && errorMessage.toLowerCase().includes('timed out'));
+}
+
+async function handleAuthenticationRetry(connectionConfig: any, error: any): Promise<boolean> {
+    const errorMessage = error?.toString() || '';
+    const choice = await vscode.window.showErrorMessage(
+        `Authentication failed: ${errorMessage}`,
+        { modal: true },
+        'Retry with different password'
+    );
+    
+    if (choice === 'Retry with different password') {
+        const newPassword = await vscode.window.showInputBox({
+            prompt: `Enter password for ${connectionConfig.username}@${connectionConfig.host}`,
+            password: true,
+            placeHolder: 'Enter a different password'
+        });
+        
+        if (newPassword) {
+            const saveChoice = await vscode.window.showQuickPick(
+                ['Yes', 'No'], 
+                { placeHolder: 'Save this password securely for future connections?' }
+            );
+            
+            if (saveChoice === 'Yes') {
+                const connectionId = CredentialManager.generateConnectionId(connectionConfig);
+                await credentialManager.storePassword(connectionId, newPassword);
+            }
+            
+            connectionConfig.password = newPassword;
+            await connectDirect(connectionConfig);
+            return true;
+        }
+    }
+    return false;
+}
+
+async function connectToSavedConnection(connectionIndex: number) {
     const config = vscode.workspace.getConfiguration('remoteFileBrowser');
     const connections = config.get<any[]>('connections', []);
     
@@ -293,63 +387,14 @@ async function connectToSavedConnection(connectionIndex: number) {
     const connectionId = CredentialManager.generateConnectionId(connection);
 
     try {
-
         if (connection.authType?.toLowerCase() === 'key') {
-            // SSH key authentication - check for stored passphrase first
-            let passphrase = await credentialManager.getPassphrase(connectionId);
-            
-            if (!passphrase && (connection.passphrase === undefined || connection.passphrase === '')) {
-                passphrase = await vscode.window.showInputBox({
-                    prompt: `Enter passphrase for SSH key (leave empty if none): ${connection.keyPath}`,
-                    password: true,
-                    placeHolder: 'Leave empty if key has no passphrase'
-                });
-                
-                if (passphrase !== undefined && passphrase !== '') {
-                    // Ask to save passphrase
-                    const savePassphrase = await vscode.window.showQuickPick(
-                        ['Yes', 'No'], 
-                        { placeHolder: 'Save passphrase securely for future connections?' }
-                    );
-                    
-                    if (savePassphrase === 'Yes') {
-                        const saved = await credentialManager.storePassphrase(connectionId, passphrase);
-                        if (saved) {
-                            connectionManagerView.getConnectionStatusManager().showTempMessage('Passphrase saved securely');
-                        }
-                    }
-                }
-            }
-            
+            const passphrase = await handleSSHKeyAuthentication(connection, connectionId);
             if (passphrase) {
                 connectionConfig.passphrase = passphrase;
             }
         } else {
-            // Password authentication - check for stored password first
-            let password = await credentialManager.getPassword(connectionId);
-            
-            if (!password) {
-                password = await vscode.window.showInputBox({
-                    prompt: `Enter password for ${connection.username}@${connection.host}`,
-                    password: true
-                });
-
-                if (!password) return;
-                
-                // Ask to save password
-                const savePassword = await vscode.window.showQuickPick(
-                    ['Yes', 'No'], 
-                    { placeHolder: 'Save password securely for future connections?' }
-                );
-                
-                if (savePassword === 'Yes') {
-                    const saved = await credentialManager.storePassword(connectionId, password);
-                    if (saved) {
-                        connectionManagerView.getConnectionStatusManager().showTempMessage('Password saved securely');
-                    }
-                }
-            }
-            
+            const password = await handlePasswordAuthentication(connection, connectionId);
+            if (!password) return;
             connectionConfig.password = password;
         }
 
@@ -359,59 +404,11 @@ async function connectToSavedConnection(connectionIndex: number) {
         updateNavigationContext();
         remoteFileProvider.refresh();
         
-        // Show success in status bar instead of popup
-        connectionManagerView.getConnectionStatusManager().showSuccess(connection.host);
-        
-        // Refresh connection manager to show updated connection state
         connectionManagerView.refreshConnections();
     } catch (error) {
-        // Check if this is likely an authentication error
-        const errorMessage = error?.toString() || '';
-        const isAuthError = errorMessage.toLowerCase().includes('authentication') || 
-                          errorMessage.toLowerCase().includes('login') ||
-                          errorMessage.toLowerCase().includes('password') ||
-                          errorMessage.toLowerCase().includes('credential') ||
-                          errorMessage.toLowerCase().includes('unauthorized') ||
-                          errorMessage.toLowerCase().includes('access denied') ||
-                          errorMessage.toLowerCase().includes('all configured authentication methods failed') ||
-                          // Handshake timeouts are often authentication issues with wrong credentials
-                          (errorMessage.toLowerCase().includes('handshake') && errorMessage.toLowerCase().includes('timed out'));
-        
-        if (isAuthError && connectionConfig.authType?.toLowerCase() === 'password') {
-            // Offer to retry with different password
-            const choice = await vscode.window.showErrorMessage(
-                `Authentication failed: ${errorMessage}`,
-                { modal: true },
-                'Retry with different password'
-            );
-            
-            if (choice === 'Retry with different password') {
-                // Prompt for new password
-                const newPassword = await vscode.window.showInputBox({
-                    prompt: `Enter password for ${connectionConfig.username}@${connectionConfig.host}`,
-                    password: true,
-                    placeHolder: 'Enter a different password'
-                });
-                
-                if (newPassword) {
-                    // Ask if they want to save the new password
-                    const saveChoice = await vscode.window.showQuickPick(
-                        ['Yes', 'No'], 
-                        { placeHolder: 'Save this password securely for future connections?' }
-                    );
-                    
-                    if (saveChoice === 'Yes') {
-                        const connectionId = CredentialManager.generateConnectionId(connectionConfig);
-                        await credentialManager.storePassword(connectionId, newPassword);
-                    }
-                    
-                    // Retry connection with new password
-                    connectionConfig.password = newPassword;
-                    return await connectDirect(connectionConfig);
-                }
-            }
-            // User chose cancel or didn't provide password - don't show additional error
-            return;
+        if (isAuthenticationError(error) && connectionConfig.authType?.toLowerCase() === 'password') {
+            const retrySuccessful = await handleAuthenticationRetry(connectionConfig, error);
+            if (retrySuccessful) return;
         }
         
         vscode.window.showErrorMessage(`Failed to connect: ${error}`);
@@ -471,8 +468,7 @@ async function connectToRemoteServer() {
         updateNavigationContext();
         remoteFileProvider.refresh();
         
-        // Show success in status bar instead of popup
-        connectionManagerView.getConnectionStatusManager().showSuccess(host);
+        // Success status will be shown after initial file listing completes in RemoteFileProvider
     } catch (error) {
         vscode.window.showErrorMessage(`Failed to connect: ${error}`);
     }
@@ -480,30 +476,6 @@ async function connectToRemoteServer() {
 
 async function disconnectFromRemoteServer() {
     try {
-        // Check if there are active operations
-        if (connectionManager.hasActiveOperations()) {
-            const activeOps = connectionManager.getActiveOperations();
-            const hasFileOperations = activeOps.some(op => 
-                op.includes('writing') || op.includes('deleting') || op.includes('renaming') || op.includes('copying')
-            );
-            
-            let message = `Remote operations are still in progress: ${activeOps.join(', ')}.`;
-            if (hasFileOperations) {
-                message += ' Force disconnecting during file operations may cause data corruption.';
-            }
-            
-            const choice = await vscode.window.showWarningMessage(
-                message,
-                { modal: true },
-                'Wait for Operations',
-                'Force Disconnect'
-            );
-            
-            if (choice === 'Wait for Operations') {
-                return; // Cancel disconnect
-            }
-            // If 'Force Disconnect', continue with disconnect and clear operations
-        }
         
         await connectionManager.disconnect();
         remoteFileProvider.resetToDefaultDirectory();
@@ -612,50 +584,53 @@ async function openRemoteFile(item: any) {
         const fileConnectionId = generateConnectionId(currentConnection);
 
         const disposable = vscode.workspace.onDidSaveTextDocument(async (savedDoc) => {
-            if (savedDoc.uri.toString() === tempUri.toString()) {
-                try {
-                    // Validate that we're still connected to the same server
-                    const activeConnection = connectionManager.getConnectionInfo();
-                    if (!activeConnection) {
-                        vscode.window.showErrorMessage(`Cannot save ${path.basename(item.path)} - no active connection. Please reconnect to the server.`);
-                        return;
-                    }
-
-                    const activeConnectionId = generateConnectionId(activeConnection);
-                    if (activeConnectionId !== fileConnectionId) {
-                        const fileName = path.basename(item.path);
-                        vscode.window.showErrorMessage(
-                            `Cannot save ${fileName} - file belongs to ${fileConnectionId} but you're connected to ${activeConnectionId}. ` +
-                            `Disconnect and reconnect to the original server to save changes.`
-                        );
-                        return;
-                    }
-
-                    const updatedContent = savedDoc.getText();
-                    await connectionManager.writeFile(item.path, updatedContent);
-                    const fileName = path.basename(item.path);
-                    connectionManagerView.getConnectionStatusManager().showTempMessage(`Uploaded ${fileName}`);
-                } catch (error) {
-                    const errorMessage = getUserFriendlyErrorMessage(error, 'save file');
-                    vscode.window.showErrorMessage(errorMessage);
+            if (savedDoc.uri.toString() !== tempUri.toString()) {
+                return;
+            }
+            
+            const fileName = path.basename(item.path);
+            
+            try {
+                // Validate that we're still connected to the same server
+                const activeConnection = connectionManager.getConnectionInfo();
+                if (!activeConnection) {
+                    vscode.window.showErrorMessage(`Cannot save ${fileName} - no active connection. Please reconnect to the server.`);
+                    return;
                 }
+
+                const activeConnectionId = generateConnectionId(activeConnection);
+                if (activeConnectionId !== fileConnectionId) {
+                    vscode.window.showErrorMessage(
+                        `Cannot save ${fileName} - file belongs to ${fileConnectionId} but you're connected to ${activeConnectionId}. ` +
+                        `Disconnect and reconnect to the original server to save changes.`
+                    );
+                    return;
+                }
+                
+                const currentContent = savedDoc.getText();
+                
+                // Only use manual progress tracking for FTP (SFTP uses real events)
+                const connectionInfo = connectionManager.getConnectionInfo();
+                if (connectionInfo?.protocol === 'ftp') {
+                    connectionManagerView.getConnectionStatusManager().showUploadProgress(fileName);
+                }
+                
+                await connectionManager.writeFile(item.path, currentContent);
+                
+                // Only show manual completion message for FTP (SFTP uses real events)
+                if (connectionInfo?.protocol === 'ftp') {
+                    connectionManagerView.getConnectionStatusManager().showTempMessage(`Uploaded ${fileName}`);
+                }
+                
+            } catch (error) {
+                connectionManagerView.getConnectionStatusManager().hide();
+                const errorMessage = getUserFriendlyErrorMessage(error, 'save file');
+                vscode.window.showErrorMessage(errorMessage);
             }
         });
 
-        // Store disposable with connection metadata for cleanup command
-        if (!global.remoteFileWatchers) {
-            global.remoteFileWatchers = new Map();
-        }
-        
-        // Only store valid disposables
-        if (disposable && typeof disposable.dispose === 'function') {
-            global.remoteFileWatchers.set(tempUri.toString(), {
-                disposable: disposable,
-                connectionId: fileConnectionId,
-                remotePath: item.path
-            });
-        } else {
-        }
+        // Store the file watcher using global state manager
+        globalStateManager.addFileWatcher(tempUri.toString(), disposable, fileConnectionId, item.path);
         
     } catch (error) {
         let errorMessage: string;
@@ -696,21 +671,7 @@ async function cleanupCurrentConnectionTempFiles() {
         }
 
         // Clean up file watchers for this connection only
-        if (global.remoteFileWatchers) {
-            const toRemove: string[] = [];
-            for (const [key, watcherInfo] of global.remoteFileWatchers.entries()) {
-                if (watcherInfo.connectionId === connectionId) {
-                    try {
-                        if (watcherInfo && watcherInfo.disposable && typeof watcherInfo.disposable.dispose === 'function') {
-                            watcherInfo.disposable.dispose();
-                        }
-                        toRemove.push(key);
-                    } catch (error) {
-                    }
-                }
-            }
-            toRemove.forEach(key => global.remoteFileWatchers?.delete(key));
-        }
+        globalStateManager.cleanupFileWatchersForConnection(connectionId);
         
         // Delete only the current connection's temp directory
         const connectionTempDir = vscode.Uri.file(getConnectionTempDir());
@@ -773,18 +734,11 @@ async function cleanupAllTempFiles() {
             return;
         }
         
-        // Clean up file watchers first
-        if (global.remoteFileWatchers) {
-            for (const watcherInfo of global.remoteFileWatchers.values()) {
-                try {
-                    if (watcherInfo && watcherInfo.disposable && typeof watcherInfo.disposable.dispose === 'function') {
-                        watcherInfo.disposable.dispose();
-                    }
-                } catch (error) {
-                }
-            }
-            global.remoteFileWatchers.clear();
-        }
+        // Clean up all file watchers first
+        // Note: We create a new instance since dispose() clears the singleton
+        const tempStateManager = globalStateManager;
+        tempStateManager.dispose();
+        globalStateManager = GlobalStateManager.getInstance();
         
         // Delete the entire remote-file-browser directory using VSCode filesystem API
         const tempDir = os.tmpdir();
@@ -865,7 +819,7 @@ async function pushToRemote(resourceUri: vscode.Uri) {
         if (isTemporaryFile) {
             // This is a temp file - give user choice between original location and current selection
             const fileUri = resourceUri.toString();
-            const watcherInfo = global.remoteFileWatchers?.get(fileUri);
+            const watcherInfo = globalStateManager.getFileWatcherInfo(fileUri);
             
             if (watcherInfo && watcherInfo.remotePath) {
                 // Show choice dialog
@@ -935,31 +889,44 @@ async function pushToRemote(resourceUri: vscode.Uri) {
             Is temporary file: ${isTemporaryFile}
             Final remote path: ${remotePath}`);
 
-        // Show progress indicator
-        await vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: `Pushing ${fileName} to remote server...`,
-            cancellable: false
-        }, async (progress) => {
-            progress.report({ increment: 0 });
+        // Check protocol to decide on progress notification
+        const connectionInfo = connectionManager.getConnectionInfo();
+        
+        if (connectionInfo?.protocol === 'ftp') {
+            // Show progress notification for FTP only
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: `Pushing ${fileName} to remote server...`,
+                cancellable: false
+            }, async (progress) => {
+                progress.report({ increment: 0 });
 
+                try {
+                    // Upload the file to the remote server
+                    await connectionManager.writeFile(remotePath, fileContent);
+                    
+                    progress.report({ increment: 100 });
+                    
+                    // Refresh the remote file tree to show the new file
+                    remoteFileProvider.refresh();
+                    
+                } catch (uploadError) {
+                    throw new Error(`Upload failed: ${uploadError}`);
+                }
+            });
+        } else {
+            // For SFTP, just execute without progress notification (uses real events)
             try {
                 // Upload the file to the remote server
                 await connectionManager.writeFile(remotePath, fileContent);
                 
-                progress.report({ increment: 100 });
-                
-                // Show success message
-                const targetPath = path.dirname(remotePath);
-                connectionManagerView.getConnectionStatusManager().showTempMessage(`Pushed ${fileName}`);
-
                 // Refresh the remote file tree to show the new file
                 remoteFileProvider.refresh();
 
             } catch (uploadError) {
                 throw new Error(`Upload failed: ${uploadError}`);
             }
-        });
+        }
 
     } catch (error) {
         vscode.window.showErrorMessage(`Failed to push file to remote: ${error}`);
@@ -1036,19 +1003,33 @@ async function deleteRemoteFile(item: any) {
             return;
         }
 
-        // Show progress for the deletion
-        await vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: `Deleting ${itemType} "${itemName}"...`,
-            cancellable: false
-        }, async (progress) => {
-            progress.report({ increment: 0 });
+        // Check protocol to decide on progress notification
+        const connectionInfo = connectionManager.getConnectionInfo();
+        
+        if (connectionInfo?.protocol === 'ftp') {
+            // Show progress notification for FTP only
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: `Deleting ${itemType} "${itemName}"...`,
+                cancellable: false
+            }, async (progress) => {
+                progress.report({ increment: 0 });
 
+                try {
+                    await connectionManager.deleteFile(item.path, item.isDirectory);
+                    progress.report({ increment: 100 });
+                    
+                    // Refresh the remote file tree
+                    remoteFileProvider.refresh();
+                    
+                } catch (deleteError) {
+                    throw new Error(`Delete failed: ${deleteError}`);
+                }
+            });
+        } else {
+            // For SFTP, just execute without progress notification (uses real events)
             try {
                 await connectionManager.deleteFile(item.path, item.isDirectory);
-                progress.report({ increment: 100 });
-                
-                connectionManagerView.getConnectionStatusManager().showTempMessage(`Deleted ${itemName}`);
                 
                 // Refresh the remote file tree
                 remoteFileProvider.refresh();
@@ -1056,7 +1037,7 @@ async function deleteRemoteFile(item: any) {
             } catch (deleteError) {
                 throw new Error(`Delete failed: ${deleteError}`);
             }
-        });
+        }
 
     } catch (error) {
         const itemType = item.isDirectory ? 'directory' : 'file';
@@ -1101,19 +1082,33 @@ async function renameRemoteFile(item: any) {
         const parentPath = item.path.substring(0, item.path.lastIndexOf('/'));
         const newPath = parentPath === '' ? `/${newName}` : `${parentPath}/${newName}`;
 
-        // Show progress for the rename
-        await vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: `Renaming ${itemType} "${currentName}" to "${newName}"...`,
-            cancellable: false
-        }, async (progress) => {
-            progress.report({ increment: 0 });
+        // Check protocol to decide on progress notification
+        const connectionInfo = connectionManager.getConnectionInfo();
+        
+        if (connectionInfo?.protocol === 'ftp') {
+            // Show progress notification for FTP only
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: `Renaming ${itemType} "${currentName}" to "${newName}"...`,
+                cancellable: false
+            }, async (progress) => {
+                progress.report({ increment: 0 });
 
+                try {
+                    await connectionManager.renameFile(item.path, newPath);
+                    progress.report({ increment: 100 });
+                    
+                    // Refresh the remote file tree
+                    remoteFileProvider.refresh();
+                    
+                } catch (renameError) {
+                    throw new Error(`Rename failed: ${renameError}`);
+                }
+            });
+        } else {
+            // For SFTP, just execute without progress notification (uses real events)
             try {
                 await connectionManager.renameFile(item.path, newPath);
-                progress.report({ increment: 100 });
-                
-                connectionManagerView.getConnectionStatusManager().showTempMessage(`Renamed to ${newName}`);
                 
                 // Refresh the remote file tree
                 remoteFileProvider.refresh();
@@ -1121,7 +1116,7 @@ async function renameRemoteFile(item: any) {
             } catch (renameError) {
                 throw new Error(`Rename failed: ${renameError}`);
             }
-        });
+        }
 
     } catch (error) {
         const itemType = item.isDirectory ? 'directory' : 'file';
@@ -1187,23 +1182,40 @@ async function moveRemoteFile(item: any) {
             }
         }
 
-        // Show progress for the move
-        await vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: `Moving ${itemType} "${item.label}"...`,
-            cancellable: false
-        }, async (progress) => {
-            progress.report({ increment: 0 });
+        // Check protocol to decide on progress notification
+        const connectionInfo = connectionManager.getConnectionInfo();
+        
+        if (connectionInfo?.protocol === 'ftp') {
+            // Show progress notification for FTP only
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: `Moving ${itemType} "${item.label}"...`,
+                cancellable: false
+            }, async (progress) => {
+                progress.report({ increment: 0 });
 
+                try {
+                    await connectionManager.renameFile(currentPath, targetPath);
+                    progress.report({ increment: 50 });
+                    
+                    // Update temporary file paths if the file is currently open
+                    await updateTempFileLocation(currentPath, targetPath);
+                    progress.report({ increment: 100 });
+                    
+                    // Refresh the remote file tree
+                    remoteFileProvider.refresh();
+                    
+                } catch (moveError) {
+                    throw new Error(`Move failed: ${moveError}`);
+                }
+            });
+        } else {
+            // For SFTP, just execute without progress notification (uses real events)
             try {
                 await connectionManager.renameFile(currentPath, targetPath);
-                progress.report({ increment: 50 });
                 
                 // Update temporary file paths if the file is currently open
                 await updateTempFileLocation(currentPath, targetPath);
-                progress.report({ increment: 100 });
-                
-                connectionManagerView.getConnectionStatusManager().showTempMessage(`Moved to ${path.basename(targetPath)}`);
                 
                 // Refresh the remote file tree
                 remoteFileProvider.refresh();
@@ -1211,7 +1223,7 @@ async function moveRemoteFile(item: any) {
             } catch (moveError) {
                 throw new Error(`Move failed: ${moveError}`);
             }
-        });
+        }
 
     } catch (error) {
         const itemType = item.isDirectory ? 'directory' : 'file';
@@ -1241,11 +1253,9 @@ async function moveRemoteFile(item: any) {
 
 async function updateTempFileLocation(oldPath: string, newPath: string): Promise<void> {
     // Check if this file has a temporary copy that needs to be moved
-    if (!global.remoteFileWatchers) {
-        return;
-    }
+    const allWatchers = globalStateManager.getAllFileWatchers();
     
-    for (const [tempUri, watcherInfo] of global.remoteFileWatchers.entries()) {
+    for (const [tempUri, watcherInfo] of allWatchers.entries()) {
         if (watcherInfo.remotePath === oldPath) {
             try {
                 // Calculate old and new temp file paths
@@ -1273,22 +1283,14 @@ async function updateTempFileLocation(oldPath: string, newPath: string): Promise
                     await vscode.workspace.fs.delete(oldTempUri);
                     
                     // Update the watcher info
-                    global.remoteFileWatchers.delete(tempUri);
-                    global.remoteFileWatchers.set(newTempUri.toString(), {
-                        ...watcherInfo,
-                        remotePath: newPath
-                    });
+                    globalStateManager.updateFileWatcherPath(tempUri, newTempUri.toString(), newPath);
                     
                     // Update editor tab if the file is currently open
                     await updateEditorTab(oldTempUri, newTempUri, newPath);
                     
                 } catch (statError) {
                     // Temp file doesn't exist, just update the watcher info
-                    global.remoteFileWatchers.delete(tempUri);
-                    global.remoteFileWatchers.set(newTempUri.toString(), {
-                        ...watcherInfo,
-                        remotePath: newPath
-                    });
+                    globalStateManager.updateFileWatcherPath(tempUri, newTempUri.toString(), newPath);
                     
                     // Still try to update editor tab if file is open
                     await updateEditorTab(oldTempUri, newTempUri, newPath);
@@ -1336,7 +1338,7 @@ async function updateEditorTab(oldTempUri: vscode.Uri, newTempUri: vscode.Uri, n
                 
                 // Show a notification about the tab update
                 const fileName = path.basename(newRemotePath);
-                connectionManagerView.getConnectionStatusManager().showTempMessage(`Updated tab: ${fileName}`);
+                // Tab update notification - keep this as it's UI-specific, not file operation
                 
             }
         }
@@ -1518,28 +1520,30 @@ async function copyRemoteFile(item: any) {
             }
         }
 
-        // Show progress for the copy
-        await vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: `Copying ${itemType} "${item.label}"...`,
-            cancellable: false
-        }, async (progress) => {
-            progress.report({ increment: 0 });
+        // Check protocol to decide on progress notification
+        const connectionInfo = connectionManager.getConnectionInfo();
+        
+        if (connectionInfo?.protocol === 'ftp') {
+            // Show progress notification for FTP only
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: `Copying ${itemType} "${item.label}"...`,
+                cancellable: false
+            }, async (progress) => {
+                progress.report({ increment: 0 });
 
-            try {
-                await connectionManager.copyFile(currentPath, targetPath, item.isDirectory);
-                progress.report({ increment: 80 });
-                
-                connectionManagerView.getConnectionStatusManager().showTempMessage(`Copied to ${path.basename(targetPath)}`);
-                
-                // Refresh the remote file tree
-                remoteFileProvider.refresh();
-                progress.report({ increment: 90 });
-                
-                // Open the copied file in editor if it's a file (not directory)
-                if (!item.isDirectory) {
-                    const copiedItem = {
-                        path: targetPath,
+                try {
+                    await connectionManager.copyFile(currentPath, targetPath, item.isDirectory);
+                    progress.report({ increment: 80 });
+                    
+                    // Refresh the remote file tree
+                    remoteFileProvider.refresh();
+                    progress.report({ increment: 90 });
+                    
+                    // Open the copied file in editor if it's a file (not directory)
+                    if (!item.isDirectory) {
+                        const copiedItem = {
+                            path: targetPath,
                         label: path.basename(targetPath),
                         isDirectory: false
                     };
@@ -1552,6 +1556,28 @@ async function copyRemoteFile(item: any) {
                 throw new Error(`Copy failed: ${copyError}`);
             }
         });
+        } else {
+            // For SFTP, just execute without progress notification (uses real events)
+            try {
+                await connectionManager.copyFile(currentPath, targetPath, item.isDirectory);
+                
+                // Refresh the remote file tree
+                remoteFileProvider.refresh();
+                
+                // Open the copied file in editor if it's a file (not directory)
+                if (!item.isDirectory) {
+                    const copiedItem = {
+                        path: targetPath,
+                        label: path.basename(targetPath),
+                        isDirectory: false
+                    };
+                    await openRemoteFile(copiedItem);
+                }
+                
+            } catch (copyError) {
+                throw new Error(`Copy failed: ${copyError}`);
+            }
+        }
 
     } catch (error) {
         const errorMessage = getCopyErrorMessage(error, item, newPath, itemType);
@@ -1777,16 +1803,8 @@ export function deactivate() {
         connectionManagerView.getConnectionStatusManager().dispose();
     }
     
-    // Clean up file watchers on deactivation
-    if (global.remoteFileWatchers) {
-        for (const watcherInfo of global.remoteFileWatchers.values()) {
-            try {
-                if (watcherInfo && watcherInfo.disposable && typeof watcherInfo.disposable.dispose === 'function') {
-                    watcherInfo.disposable.dispose();
-                }
-            } catch (error) {
-            }
-        }
-        global.remoteFileWatchers.clear();
+    // Clean up global state on deactivation
+    if (globalStateManager) {
+        globalStateManager.dispose();
     }
 }

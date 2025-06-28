@@ -1,4 +1,5 @@
 const path = require('path');
+const CopyPlugin = require('copy-webpack-plugin');
 
 module.exports = {
   target: 'node',
@@ -40,4 +41,17 @@ module.exports = {
   infrastructureLogging: {
     level: "log",
   },
+  plugins: [
+    new CopyPlugin({
+      patterns: [
+        {
+          from: 'templates',
+          to: 'templates',
+          globOptions: {
+            ignore: ['**/.DS_Store']
+          }
+        }
+      ]
+    })
+  ]
 };

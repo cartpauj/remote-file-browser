@@ -113,7 +113,23 @@ export class RemoteFileProvider implements vscode.TreeDataProvider<RemoteFileIte
 
         try {
             const path = element ? element.path : this.getCurrentDirectory();
+            
+            // For root directory listing (initial load), show appropriate status
+            const isRootListing = !element && path === this.getCurrentDirectory();
+            
             const files = await this.connectionManager.listFiles(path);
+            
+            // Clear loading status after successful root directory listing
+            if (isRootListing) {
+                const connectionInfo = this.connectionManager.getCurrentConnectionInfo();
+                if (connectionInfo.isConnected && connectionInfo.host) {
+                    // Only show manual success for FTP (SFTP uses real list operation events)
+                    const statusManager = this.connectionManager.getStatusManager();
+                    if (statusManager && connectionInfo.config?.protocol === 'ftp') {
+                        statusManager.showSuccess(connectionInfo.host);
+                    }
+                }
+            }
             
             // Sort files: directories first (alphabetically), then files (alphabetically)
             const sortedFiles = files.sort((a, b) => {
@@ -136,6 +152,15 @@ export class RemoteFileProvider implements vscode.TreeDataProvider<RemoteFileIte
                 );
             });
         } catch (error) {
+            // Clear loading status on error and show error
+            const connectionInfo = this.connectionManager.getCurrentConnectionInfo();
+            if (connectionInfo.host) {
+                const statusManager = this.connectionManager.getStatusManager();
+                if (statusManager) {
+                    statusManager.showError(connectionInfo.host, `Failed to list files: ${error}`);
+                }
+            }
+            
             vscode.window.showErrorMessage(`Failed to list files: ${error}`);
             return [];
         }

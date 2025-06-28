@@ -8,7 +8,7 @@ Edit remote files seamlessly in VSCode/Cursor with instant access and automatic 
 
 🔄 **Auto-Sync on Save** - Changes automatically upload to your server when you hit `Ctrl+S` / `Cmd+S`
 
-🔐 **Secure Authentication** - Full support for SSH keys (OpenSSH & PuTTY PPK v2/v3), password auth, and secure credential storage
+🔐 **Secure Authentication** - Full support for SSH keys (OpenSSH & PuTTY PPK v2/v3) with revolutionary RSA-SHA2 compatibility for modern SSH servers, password auth, and secure credential storage
 
 📁 **Complete File Management** - Rename, move, copy, and delete files/directories directly on the remote server
 
@@ -26,9 +26,13 @@ Edit remote files seamlessly in VSCode/Cursor with instant access and automatic 
 
 ⚠️ **Overwrite Protection** - Built-in safeguards prevent accidental file replacement
 
-📊 **Enhanced Connection Progress** - Clear status bar indicators and visual feedback for all connection activities
+📊 **Enhanced Connection Progress** - Real-time progress tracking with percentage indicators and advanced file transfer monitoring
+
+🚀 **Revolutionary Performance** - Powered by pure-js-sftp 5.0.0 with 4x faster transfers (20+ MB/s), automatic server adaptation, and intelligent reconnection
 
 🔇 **Non-Intrusive Notifications** - Smart notification system that uses status bar messages instead of disruptive popups
+
+🛡️ **Operation Protection** - Advanced concurrent operation prevention system protects against duplicate file operations and connection conflicts
 
 ## Getting Started
 
@@ -64,14 +68,14 @@ Edit remote files seamlessly in VSCode/Cursor with instant access and automatic 
 When connecting to servers, you'll see clear visual feedback:
 
 - **Status Bar Progress**: Detailed connection stages appear in the status bar:
-  - "🔄 Establishing connection to [host]..."
-  - "🔄 Authenticating to [host]..."
-  - "🔄 Loading file structure from [host]..."
-  - "✅ Connected to [host]" (briefly, then shows persistent connected state)
+  - "⟳ Establishing connection to [host]..."
+  - "⟳ Authenticating to [host]..."
+  - "⟳ Loading file structure from [host]..."
+  - "✓ Connected to [host]" (briefly, then shows persistent connected state)
 
 - **Welcome View Spinners**: Connection items show spinning indicators during connection attempts
 
-- **Persistent Connected State**: Once connected, the status bar shows "🔌 [host] ✖️" with:
+- **Persistent Connected State**: Once connected, the status bar shows "⚡ [host] ✖" with:
   - Click anywhere to disconnect immediately
   - Tooltip: "Connected to [host] - Click to disconnect"
   - Remains visible until disconnected
@@ -84,13 +88,18 @@ The extension uses smart notification management:
 - **Auto-Dismiss**: Status bar messages automatically disappear after 3-5 seconds
 - **Examples of Status Bar Messages**:
   - "Password saved securely"
-  - "Uploaded filename.txt"
+  - "filename.txt (45%)" (real-time upload progress)
+  - "Uploaded filename.txt" (completion notification)
+  - "Pushed filename.txt"
   - "Connection deleted"
-  - "Temp files cleaned up"
+  - "Cleaned up 5 temp files"
+  - "Renamed to newname.txt"
+  - "Moved to foldername"
+  - "Copied to filename.txt"
 
 #### Retry and Error Handling
 - **Connection Retries**: Failed connections automatically retry with exponential backoff
-- **Status Updates**: Retry attempts show "🔄 Retrying connection to [host] (2/3)..."
+- **Status Updates**: Retry attempts show "⟳ Retrying connection to [host] (2/3)..."
 - **Smart Error Recovery**: Authentication failures offer retry options with new credentials
 
 ### Connection Management
@@ -153,8 +162,10 @@ Some users prefer different file opening behaviors. You can customize these in V
 ### Editing Files
 - Files open instantly in your editor
 - Make changes and save normally (`Ctrl+S` / `Cmd+S`)
-- Changes are automatically uploaded to the remote server
-- You'll see a brief status bar confirmation: "Uploaded filename.txt"
+- Changes are automatically uploaded to the remote server with 4x faster speeds
+- Real-time progress tracking: "filename.txt (45%)" during uploads  
+- Status bar confirmation: "Uploaded filename.txt" upon completion
+- Clean status transitions: No more stuck or duplicate status messages
 
 ### Uploading Local Files to Remote Server
 - Open any local file in VSCode/Cursor
@@ -167,6 +178,16 @@ Some users prefer different file opening behaviors. You can customize these in V
   - **"Original Location"**: Upload back to where the file was originally downloaded from
   - **"Current Location"**: Upload to currently selected directory in remote tree
 - **Note**: For regular files, you must first select a directory in the remote file tree as the upload destination
+
+### File Operations via Right-Click Context Menu
+
+All file operations are available by **right-clicking** on files or directories in the remote file tree. The context menu provides:
+
+- **"Open"** - Open the file in the editor (same as double-clicking)
+- **"Rename"** - Rename the file or directory
+- **"Move"** - Move the file or directory to a new path
+- **"Copy"** - Copy the file or directory to a new location
+- **"Delete"** - Delete the file or directory from the server
 
 ### Renaming and Deleting Remote Files
 You can rename or delete files and directories directly on the remote server:
@@ -235,10 +256,12 @@ You can rename or delete files and directories directly on the remote server:
 ### Switching Servers
 You can disconnect and switch servers in multiple ways:
 
-- **Status Bar**: Click the persistent connection indicator "🔌 [host] ✖️" in the status bar
+- **Status Bar**: Click the persistent connection indicator "⚡ [host] ✖" in the status bar
 - **Remote Files View**: Click the **X** (disconnect) button in the remote files toolbar  
 - **Command Palette**: Use "Remote File Browser: Disconnect from Remote Server"
 - **Welcome View**: Simply click a different connection to automatically disconnect and reconnect
+
+**Disconnect Feedback**: When disconnecting, you'll see a brief "Disconnecting from [host]" status message before the status bar clears, providing clear confirmation that the disconnection was successful.
 
 ## Anonymous FTP Support
 
@@ -291,6 +314,15 @@ If you encounter authentication failures, the extension provides smart recovery 
 
 All PPK files are automatically converted to OpenSSH format in memory - no manual conversion required! Simply select your .ppk file and it will work regardless of version.
 
+#### Enhanced SSH Compatibility
+
+**Revolutionary RSA-SHA2 Support**: Powered by pure-js-sftp 5.0.0 with breakthrough compatibility fixes:
+- ✅ **100% RSA Key Compatibility** with modern SSH servers (OpenSSH 8.2+)
+- ✅ **Automatic Algorithm Upgrade** from legacy RSA-SHA1 to modern RSA-SHA2-256
+- ✅ **Zero Configuration Required** - compatibility fixes applied automatically
+- ✅ **Backward Compatible** with legacy SSH servers
+- ✅ **Enhanced Security** using modern cryptographic signatures
+
 ### Managing Connections
 
 #### Adding New Connections
@@ -342,14 +374,51 @@ Follow these steps to upload local files to your remote server:
    - The file will be uploaded to your selected remote directory
 
 3. **View Progress**:
-   - You'll see a progress indicator during upload
-   - Status bar confirmation: "Pushed filename.txt"
+   - Real-time progress with percentage: "filename.txt (67%)"
+   - Enhanced transfer speeds up to 20+ MB/s for large files
+   - Automatic server adaptation and intelligent reconnection for reliability
+   - Status bar confirmation: "Pushed filename.txt" upon completion
+   - Clean status transitions with proper connection timing
    - The remote file tree will refresh to show your uploaded file
 
 **Requirements**:
 - Must be connected to a remote server
 - Must have a directory selected in the remote file tree
 - Local file must exist and be readable
+
+## Operation Protection Features
+
+### Concurrent Operation Prevention
+The extension includes advanced protection against duplicate and conflicting operations:
+
+#### Connection Protection
+- **Prevents multiple connection attempts**: If a connection is already in progress, additional attempts are silently ignored
+- **Connection state management**: Proper handling of connection timing to prevent "SFTP connection is not ready" errors
+- **SFTP connection timing**: Waits for `connectionReady` event before allowing file operations
+- **Clean disconnection**: All operation locks are cleared when disconnecting
+
+#### File Operation Protection  
+- **Prevents concurrent file operations**: Each file operation (read, write, delete, rename) is protected by operation-specific locks
+- **Operation types protected**:
+  - `read:filename.txt` - Prevents multiple downloads of the same file
+  - `write:filename.txt` - Prevents multiple uploads to the same file  
+  - `delete:filename.txt` - Prevents multiple deletion attempts
+  - `rename:oldname.txt` - Prevents multiple rename operations
+- **Clear error messages**: "File operation already in progress" when attempting duplicate operations
+- **Automatic cleanup**: Operation locks are automatically released when operations complete or fail
+
+#### VSCode Preview Mode Compatibility
+- **Handles rapid clicks**: Protects against VSCode's `workbench.editor.enablePreview` causing multiple file operations
+- **Single-click protection**: Prevents issues when single-clicking files rapidly in preview mode
+- **Double-click protection**: Guards against accidental double-clicking triggering duplicate operations
+
+#### Benefits
+- **No duplicate status messages**: Eliminates "downloading, downloaded, downloading..." cycles
+- **Prevents data corruption**: Stops multiple writes to the same file from conflicting
+- **Improves reliability**: Reduces connection errors and timing issues
+- **Better user experience**: Clean, predictable operation behavior
+
+**💡 Tip**: If you encounter "File operation already in progress" errors, simply wait a moment for the current operation to complete before trying again.
 
 ## Advanced Features
 
@@ -392,19 +461,16 @@ Example configuration:
       "authType": "key",
       "keyPath": "/home/user/.ssh/id_rsa",
       "connectionTimeout": 20000,
-      "operationTimeout": 90000,
-      "maxRetries": 5,
-      "enableKeepAlive": true
+      "operationTimeout": 90000
     }
   ]
 }
 ```
 
-**Note**: All advanced timeout and retry parameters are optional. If not specified, sensible defaults are used:
+**Note**: Timeout parameters are optional. If not specified, sensible defaults are used:
 - Connection timeouts: 20s (SFTP), 30s (FTP)
 - Operation timeout: 60s
-- Max retries: 3 attempts with exponential backoff
-- Keep-alive: Enabled with 30s intervals
+- Retry logic and keep-alive are handled automatically by the underlying connection libraries
 
 ## How Temporary Files Work
 

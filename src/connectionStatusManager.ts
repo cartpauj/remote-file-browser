@@ -1,11 +1,21 @@
 import * as vscode from 'vscode';
 
+const SUCCESS_MESSAGE_DURATION = 3000;
+const ERROR_MESSAGE_DURATION = 5000;
+const TEMP_MESSAGE_DURATION = 3000;
+
 export class ConnectionStatusManager {
     private statusBarItem: vscode.StatusBarItem;
     private isShowing: boolean = false;
+    private connectionManager: any = null;
+    private currentTimer?: NodeJS.Timeout;
 
     constructor() {
         this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+    }
+
+    public setConnectionManager(connectionManager: any) {
+        this.connectionManager = connectionManager;
     }
 
     public showConnecting(host: string) {
@@ -40,7 +50,7 @@ export class ConnectionStatusManager {
         // Auto-hide success message after 3 seconds, then show persistent connected state
         setTimeout(() => {
             this.showConnected(host);
-        }, 3000);
+        }, SUCCESS_MESSAGE_DURATION);
     }
 
     public showConnected(host: string) {
@@ -59,7 +69,7 @@ export class ConnectionStatusManager {
         // Auto-hide error message after 5 seconds
         setTimeout(() => {
             this.hide();
-        }, 5000);
+        }, ERROR_MESSAGE_DURATION);
     }
 
     public showDisconnected() {
@@ -80,10 +90,12 @@ export class ConnectionStatusManager {
         }
     }
 
-    public showTempMessage(message: string, duration: number = 3000) {
-        const originalText = this.statusBarItem.text;
-        const originalTooltip = this.statusBarItem.tooltip;
-        const originalCommand = this.statusBarItem.command;
+    public showTempMessage(message: string, duration: number = TEMP_MESSAGE_DURATION) {
+        // Cancel any existing timer to prevent timer conflicts
+        if (this.currentTimer) {
+            clearTimeout(this.currentTimer);
+            this.currentTimer = undefined;
+        }
         
         this.statusBarItem.text = `$(info) ${message}`;
         this.statusBarItem.tooltip = message;
@@ -91,15 +103,36 @@ export class ConnectionStatusManager {
         this.statusBarItem.show();
         this.isShowing = true;
         
-        setTimeout(() => {
-            if (originalText) {
-                this.statusBarItem.text = originalText;
-                this.statusBarItem.tooltip = originalTooltip;
-                this.statusBarItem.command = originalCommand;
-            } else {
-                this.hide();
-            }
-        }, duration);
+        // If duration is 0, don't auto-hide (persistent message)
+        if (duration > 0) {
+            this.currentTimer = setTimeout(() => {
+                this.currentTimer = undefined;
+                
+                // Always return to connected state after temp messages - don't restore previous temp messages
+                const connectionInfo = this.getConnectedHost();
+                if (connectionInfo) {
+                    this.showConnected(connectionInfo);
+                } else {
+                    this.hide();
+                }
+            }, duration);
+        }
+    }
+
+    private getConnectedHost(): string | null {
+        if (this.connectionManager && this.connectionManager.isConnected()) {
+            const connectionInfo = this.connectionManager.getCurrentConnectionInfo();
+            return connectionInfo?.host || null;
+        }
+        return null;
+    }
+
+    public showUploadProgress(fileName: string) {
+        this.statusBarItem.text = `$(sync~spin) Uploading ${fileName}...`;
+        this.statusBarItem.tooltip = `Uploading ${fileName} to server`;
+        this.statusBarItem.command = undefined;
+        this.statusBarItem.show();
+        this.isShowing = true;
     }
 
     public dispose() {

@@ -2,7 +2,7 @@
 	"name": "remote-file-browser",
 	"displayName": "Remote File Browser",
 	"description": "Browse remote files via SFTP/FTP without downloading them locally",
-	"version": "3.3.2",
+	"version": "4.0.0",
 	"publisher": "cartpauj",
 	"icon": "icon.png",
 	"repository": {
@@ -373,7 +373,6 @@
 		}
 	},
 	"scripts": {
-		"vscode:prepublish": "npm run package",
 		"compile": "webpack",
 		"watch": "webpack --watch",
 		"package": "webpack --mode production --devtool hidden-source-map"
@@ -381,6 +380,7 @@
 	"devDependencies": {
 		"@types/node": "^16.18.126",
 		"@types/vscode": "^1.74.0",
+		"copy-webpack-plugin": "^13.0.0",
 		"ts-loader": "^9.5.2",
 		"typescript": "^5.8.3",
 		"webpack": "^5.99.9",
@@ -389,6 +389,6 @@
 	"dependencies": {
 		"basic-ftp": "^5.0.5",
 		"ppk-to-openssh": "^3.2.0",
-		"pure-js-sftp": "^4.0.1"
+		"pure-js-sftp": "^5.0.1"
 	}
 }

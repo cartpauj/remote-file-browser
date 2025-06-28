@@ -43,13 +43,15 @@ export class WelcomeViewProvider implements vscode.TreeDataProvider<WelcomeItem>
         this.refresh();
     }
 
-    // Debounce mechanism for connection clicks (500ms cooldown)
+    // Debounce mechanism for connection clicks
+    private static readonly CLICK_DEBOUNCE_MS = 500;
+    
     static isClickTooSoon(index: number): boolean {
         const now = Date.now();
         const lastClick = WelcomeViewProvider.lastClickTimes.get(index) || 0;
         const timeSinceLastClick = now - lastClick;
         
-        if (timeSinceLastClick < 500) { // 500ms debounce
+        if (timeSinceLastClick < WelcomeViewProvider.CLICK_DEBOUNCE_MS) {
             return true; // Too soon, ignore this click
         }
         

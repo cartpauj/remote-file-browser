@@ -5,6 +5,129 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0] - 2025-06-28
+
+### 🛡️ Operation Protection System
+- **Revolutionary Concurrent Operation Prevention**: Advanced protection against duplicate and conflicting operations
+  - Connection protection prevents multiple simultaneous connection attempts
+  - File operation locks prevent concurrent operations on same files (`read:path`, `write:path`, `delete:path`, `rename:path`)
+  - VSCode preview mode compatibility protects against rapid click-induced duplicate operations
+  - Automatic cleanup of operation locks on disconnection and operation completion
+  - Clear error messages: "File operation already in progress" when attempting duplicate operations
+
+### 🚀 Enhanced Connection Management  
+- **SFTP Connection Timing Fixes**: Proper connection readiness detection eliminates "SFTP connection is not ready" errors
+  - Waits for `connectionReady` event before allowing file operations
+  - 10-second timeout with graceful fallback for connection establishment
+  - Separate connection status for SFTP vs FTP protocols
+  - Enhanced connection state management prevents premature operations
+
+### 📊 Status Bar Improvements
+- **Eliminated Duplicate Status Messages**: Fixed "downloading, downloaded, downloading..." cycles
+  - Proper timer cancellation prevents overlapping status message timers
+  - All temporary messages return to clean connected state instead of restoring previous messages
+  - Clean status transitions with no stuck or hanging messages
+- **Disconnect Status Messages**: Added "Disconnecting from [host]" confirmation feedback
+- **Enhanced Progress Tracking**: Improved status message reliability and consistency
+
+### 🔧 Library Updates
+- **Pure-js-sftp 5.0.1**: Updated from local development version to latest stable npmjs.com release
+  - Improved stability and compatibility with official published version
+  - Better npm ecosystem integration and dependency management
+  - Enhanced security with verified published packages
+
+### 💡 User Experience Improvements
+- **Single-Click File Opening**: Documented proper VSCode file opening behavior (single-click, not double-click)
+- **Preview Mode Protection**: Enhanced compatibility with `workbench.editor.enablePreview` setting
+- **Operation Feedback**: Clear error messages and status updates for all operations
+- **Connection State Awareness**: Better visual feedback for connection states and transitions
+
+### 🐛 Bug Fixes
+- Fixed connection timing issues causing premature file operation attempts
+- Resolved duplicate status message cycles in progress tracking
+- Eliminated race conditions in rapid file operation scenarios
+- Improved error handling for concurrent operation attempts
+
+### 📚 Documentation Updates
+- Comprehensive documentation of operation protection features
+- Enhanced troubleshooting section with VSCode-specific tips
+- Updated README with all new reliability improvements
+- Added notes about single-click vs double-click behavior
+
+## [3.4.0] - 2025-06-27
+
+### Major Architectural Improvements
+- **🏗️ GlobalStateManager**: Introduced centralized state management system for file watchers and upload tracking
+  - Singleton pattern prevents memory leaks and resource conflicts
+  - Proper cleanup on extension deactivation with comprehensive disposal methods
+  - Upload tracking with stale upload detection and automatic cleanup
+  - File watcher management with connection-specific cleanup capabilities
+- **📁 Template Externalization**: Moved 935-line HTML template to separate file for better maintainability
+  - Connection manager template now in `templates/connection-manager.html`
+  - Webpack copy plugin automatically includes templates in build output
+  - Fallback template system with error handling for missing template files
+  - Improved code organization with separation of concerns
+
+### Code Quality & Performance
+- **🧹 Function Decomposition**: Broke down complex 140-line function into focused, maintainable components
+  - `handleSSHKeyAuthentication()` - Dedicated SSH key and passphrase management
+  - `handlePasswordAuthentication()` - Streamlined password authentication workflow  
+  - `isAuthenticationError()` - Enhanced error pattern detection for smart retry logic
+  - `handleAuthenticationRetry()` - Intelligent retry mechanism with user confirmation
+  - Improved readability and testability with single-responsibility functions
+- **🔧 Magic Number Elimination**: Replaced hardcoded values with named constants throughout codebase
+  - `SUCCESS_MESSAGE_DURATION = 3000` - Status bar success message timing
+  - `ERROR_MESSAGE_DURATION = 5000` - Error message display duration
+  - `TEMP_MESSAGE_DURATION = 3000` - Temporary notification timing
+  - `CLICK_DEBOUNCE_MS = 500` - Welcome view click debouncing
+  - `MAX_SAVED_CONNECTIONS = 20` - Connection storage limit
+
+### Bug Fixes
+- **🐛 Duplicate Upload Status Fix**: Resolved critical issue where status bar showed false "Uploading..." messages
+  - Fixed status restoration logic in `showTempMessage()` to detect upload progress states
+  - Prevents misleading duplicate upload indicators after file operations complete
+  - Improved user experience with accurate upload progress feedback
+- **🔗 Method Signature Cleanup**: Removed unused `timeoutMs` parameters from status manager methods
+  - Simplified API surface with consistent parameter patterns across all status methods
+  - Eliminated potential confusion from unused optional parameters
+  - Enhanced type safety and code maintainability
+
+### Build System Enhancements
+- **📦 Webpack Template Copying**: Added copy-webpack-plugin to build process
+  - Automatic template file inclusion in extension output
+  - Development and production build compatibility
+  - Proper resource management for external HTML templates
+
+### Removed/Simplified Features
+- **🗑️ Advanced Connection Settings Removal**: Streamlined connection configuration by removing complex settings
+  - Removed `maxRetries` configuration option - now uses sensible built-in defaults
+  - Removed `enableKeepAlive` setting - keep-alive handled automatically by underlying libraries
+  - Removed `retryDelay` configuration - simplified to use exponential backoff without user configuration
+  - Simplified connection interface focuses on essential settings only (host, port, auth, timeouts)
+- **🔧 Automatic Retry Logic**: Replaced user-configurable retry settings with intelligent built-in behavior
+  - Smart retry detection based on error type rather than blanket retry counts
+  - Connection libraries handle keep-alive and reconnection automatically
+  - Reduced configuration complexity while maintaining reliability
+
+### Technical Debt Reduction
+- **♻️ Resource Management**: Enhanced cleanup procedures and memory management
+  - Comprehensive disposal patterns for all extension resources
+  - Connection-specific cleanup for temporary files and watchers
+  - Proper lifecycle management preventing resource leaks
+- **🎯 Type Safety**: Improved TypeScript usage with better interface definitions
+  - Enhanced type checking for state management operations
+  - Cleaner generic usage and better error handling patterns
+
+### Developer Experience
+- **📚 Code Organization**: Improved project structure and separation of concerns
+  - Template files properly organized in dedicated directory
+  - State management isolated in dedicated manager class
+  - Clear architectural boundaries between components
+- **🔍 Debugging Support**: Enhanced debug capabilities with centralized state inspection
+  - `getDebugInfo()` method for runtime state analysis
+  - Better error tracking and resource monitoring
+  - Improved development workflow with cleaner abstractions
+
 ## [3.3.2] - 2025-06-21
 
 ### Fixed

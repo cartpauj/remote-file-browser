@@ -3,6 +3,7 @@ import { Client as FtpClient } from 'basic-ftp';
 import * as fs from 'fs';
 import { Readable, PassThrough } from 'stream';
 import { ConnectionStatusManager } from './connectionStatusManager';
+import * as vscode from 'vscode';
 
 export interface ConnectionConfig {
     protocol: 'sftp' | 'ftp';
@@ -18,13 +19,9 @@ export interface ConnectionConfig {
     // FTP over TLS settings
     enableFTPS?: boolean;          // Enable FTP over TLS (default: false)
     ftpsMode?: 'explicit' | 'implicit'; // FTPS mode (default: 'explicit')
-    // Connection timeout and retry settings
+    // Connection timeout settings
     connectionTimeout?: number;     // Connection timeout in milliseconds (default: 20000 for SFTP, 30000 for FTP)
     operationTimeout?: number;      // File operation timeout in milliseconds (default: 60000)
-    maxRetries?: number;           // Maximum retry attempts (default: 3)
-    retryDelay?: number;          // Base delay between retries in milliseconds (default: 1000)
-    enableKeepAlive?: boolean;    // Enable keep-alive mechanisms (default: true)
-    keepAliveInterval?: number;   // Keep-alive interval in milliseconds (default: 30000)
 }
 
 export interface RemoteFileInfo {
@@ -34,58 +31,142 @@ export interface RemoteFileInfo {
     modifyTime?: Date;
 }
 
-export interface ConnectionHealth {
-    isConnected: boolean;
-    lastSuccessfulOperation?: Date;
-    consecutiveFailures: number;
-    totalConnections: number;
-    uptime?: number;           // Time connected in milliseconds
-    keepAliveStatus: 'active' | 'inactive' | 'failing';
-    lastError?: string;
-}
 
 export class ConnectionManager {
     private sftpClient?: SftpClient;
     private ftpClient?: FtpClient;
     private config?: ConnectionConfig;
     private connected = false;
-    private keepAliveInterval?: NodeJS.Timeout;
-    private connectionRetries = 0;
-    private ftpConnectionLock = false;
     private statusManager?: ConnectionStatusManager;
-    private activeOperations: Set<string> = new Set();
-    
-    // Health monitoring properties
-    private lastSuccessfulOperation?: Date;
-    private consecutiveFailures = 0;
-    private totalConnections = 0;
-    private connectionStartTime?: Date;
-    private keepAliveStatus: 'active' | 'inactive' | 'failing' = 'inactive';
-    private lastError?: string;
+    private operationLocks = new Set<string>();
+    private connectionInProgress = false;
 
     public setStatusManager(statusManager: ConnectionStatusManager) {
         this.statusManager = statusManager;
+        statusManager.setConnectionManager(this);
     }
 
-    getActiveOperations(): string[] {
-        return Array.from(this.activeOperations);
+    private setupSftpEventListeners() {
+        if (!this.sftpClient) return;
+
+        // Configure pure-js-sftp 5.0.0 enhanced event system
+        if (typeof (this.sftpClient as any).setEventOptions === 'function') {
+            (this.sftpClient as any).setEventOptions({
+                enableProgressEvents: true,
+                enablePerformanceEvents: false,
+                progressThrottle: 100
+            });
+        }
+
+        // Event listeners for pure-js-sftp 5.0.0 enhanced event system
+        this.sftpClient.on('operationStart', (data: any) => {
+            if (!this.statusManager) return;
+            
+            const fileName = data.fileName || data.remotePath?.split('/').pop() || 'file';
+            
+            
+            // Enhanced event format: { type, operation_id, remotePath, fileName, startTime, totalBytes?, etc. }
+            
+            if (data.type === 'upload') {
+                this.statusManager.showUploadProgress(fileName);
+            } else if (data.type === 'download') {
+                this.statusManager.showTempMessage(`Downloading ${fileName}`);
+            } else if (data.type === 'delete') {
+                this.statusManager.showTempMessage(`Deleting ${fileName}`);
+            } else if (data.type === 'mkdir') {
+                this.statusManager.showTempMessage(`Creating directory ${fileName}`);
+            } else if (data.type === 'rename') {
+                this.statusManager.showTempMessage(`Renaming ${fileName}`);
+            } else if (data.type === 'list') {
+                this.statusManager.showLoadingFiles(this.config?.host || 'server');
+            }
+        });
+
+        this.sftpClient.on('operationProgress', (data: any) => {
+            if (!this.statusManager) return;
+            // Enhanced event format includes percentage, bytesTransferred, totalBytes
+            const fileName = data.fileName || data.remotePath?.split('/').pop() || 'file';
+            
+            if (data.percentage && data.type === 'upload') {
+                this.statusManager.showUploadProgress(`${fileName} (${Math.round(data.percentage)}%)`);
+            } else if (data.percentage && data.type === 'download') {
+                this.statusManager.showTempMessage(`Downloading ${fileName} (${Math.round(data.percentage)}%)`);
+            }
+        });
+
+        this.sftpClient.on('operationComplete', (data: any) => {
+            if (!this.statusManager) return;
+            
+            const fileName = data.fileName || data.remotePath?.split('/').pop() || 'file';
+            
+            
+            // Enhanced event format: { type, operation_id, remotePath, fileName, duration?, etc. }
+            
+            if (data.type === 'upload') {
+                this.statusManager.showTempMessage(`Uploaded ${fileName}`);
+            } else if (data.type === 'download') {
+                this.statusManager.showTempMessage(`Downloaded ${fileName}`);
+            } else if (data.type === 'delete') {
+                this.statusManager.showTempMessage(`Deleted ${fileName}`);
+            } else if (data.type === 'rename') {
+                // For rename, show the new name from the complete event
+                const newFileName = data.fileName || data.remotePath?.split('/').pop() || 'file';
+                this.statusManager.showTempMessage(`Renamed to ${newFileName}`);
+            } else if (data.type === 'mkdir') {
+                this.statusManager.showTempMessage(`Created directory ${fileName}`);
+            } else if (data.type === 'list') {
+                const connectionInfo = this.getCurrentConnectionInfo();
+                if (connectionInfo.host) {
+                    this.statusManager.showConnected(connectionInfo.host);
+                }
+            }
+        });
+
+        this.sftpClient.on('operationError', (data: any) => {
+            if (!this.statusManager) return;
+            
+            // Enhanced event format: { error, category, isRetryable, suggestedAction, operation_id, type }
+            const error = data.error || data;
+            const errorMessage = error.message || String(error);
+            
+            // Show contextual error based on operation type
+            if (data.type === 'upload') {
+                this.statusManager.showError(this.config?.host || 'server', `Upload failed: ${errorMessage}`);
+            } else if (data.type === 'download') {
+                this.statusManager.showError(this.config?.host || 'server', `Download failed: ${errorMessage}`);
+            } else {
+                this.statusManager.showError(this.config?.host || 'server', errorMessage);
+            }
+        });
+
+        // Monitor auto-reconnection events from pure-js-sftp 5.0.0
+        this.sftpClient.on('autoReconnect', (data: any) => {
+            if (this.statusManager) {
+                this.statusManager.showTempMessage(`Auto-reconnecting (${data.operations} ops completed)...`, 0);
+            }
+        });
+
+        // Connection monitoring events
+        this.sftpClient.on('connectionStart', (data: any) => {
+            if (this.statusManager) {
+                this.statusManager.showConnecting(data.host);
+            }
+        });
+
+        this.sftpClient.on('connectionReady', (data: any) => {
+            // Mark as truly connected only when SFTP is ready
+            this.connected = true;
+            
+            if (this.statusManager) {
+                this.statusManager.showSuccess(data.host);
+            }
+        });
     }
 
-    hasActiveOperations(): boolean {
-        return this.activeOperations.size > 0;
+    public getStatusManager(): ConnectionStatusManager | undefined {
+        return this.statusManager;
     }
 
-    private addOperation(operation: string): void {
-        this.activeOperations.add(operation);
-    }
-
-    private removeOperation(operation: string): void {
-        this.activeOperations.delete(operation);
-    }
-
-    private clearAllOperations(): void {
-        this.activeOperations.clear();
-    }
 
     public getCurrentConnectionInfo(): {isConnected: boolean, host?: string, config?: ConnectionConfig} {
         return {
@@ -96,75 +177,62 @@ export class ConnectionManager {
     }
 
     async connect(config: ConnectionConfig): Promise<void> {
-        this.config = config;
-        this.connectionRetries = 0;
-
-        this.addOperation('connecting');
-        try {
-            await this.connectWithRetry();
-            this.connected = true;
-        } finally {
-            this.removeOperation('connecting');
+        // Prevent concurrent connection attempts
+        if (this.connectionInProgress) {
+            return;
         }
         
-        // Update health metrics
-        this.totalConnections++;
-        this.connectionStartTime = new Date();
-        this.lastSuccessfulOperation = new Date();
-        this.consecutiveFailures = 0;
-        this.lastError = undefined;
+        // Check if already connected to same server
+        if (this.connected && this.config && 
+            this.config.host === config.host && 
+            this.config.port === config.port && 
+            this.config.username === config.username) {
+            return;
+        }
         
-        // Start keep-alive if enabled
-        if (config.enableKeepAlive !== false) {
-            this.startKeepAlive();
+        this.connectionInProgress = true;
+        try {
+            this.config = config;
+
+            await this.connectWithRetry();
+            // For SFTP, connected status is set by connectionReady event
+            // For FTP, set it here since FTP doesn't have a separate ready event
+            if (this.config.protocol === 'ftp') {
+                this.connected = true;
+            }
+        } finally {
+            this.connectionInProgress = false;
         }
     }
 
     private async connectWithRetry(): Promise<void> {
         if (!this.config) throw new Error('No configuration provided');
         
-        const maxRetries = this.config.maxRetries || 3;
-        const baseDelay = this.config.retryDelay || 1000;
-        
-        for (let attempt = 0; attempt <= maxRetries; attempt++) {
-            try {
-                if (attempt > 0 && this.statusManager) {
-                    this.statusManager.showRetrying(this.config.host, attempt, maxRetries);
-                }
-                
-                if (this.config.protocol === 'sftp') {
-                    await this.connectSftp();
-                } else {
-                    await this.connectFtp();
-                }
-                this.connectionRetries = 0;
-                
-                // Show success and initial file loading
-                if (this.statusManager) {
-                    this.statusManager.showLoadingFiles(this.config.host);
-                }
-                
-                return; // Success!
-            } catch (error) {
-                this.connectionRetries = attempt + 1;
-                
-                if (attempt === maxRetries) {
-                    if (this.statusManager) {
-                        this.statusManager.showError(this.config.host, (error as any).message || String(error));
-                    }
-                    throw error; // Final attempt failed
-                }
-                
-                // Exponential backoff: delay = baseDelay * 2^attempt (capped at 10 seconds)
-                const delay = Math.min(baseDelay * Math.pow(2, attempt), 10000);
-                await new Promise(resolve => setTimeout(resolve, delay));
+        try {
+            if (this.config.protocol === 'sftp') {
+                await this.connectSftp();
+            } else {
+                await this.connectFtp();
             }
+                
+            // Show success and initial file loading
+            if (this.statusManager) {
+                this.statusManager.showLoadingFiles(this.config.host);
+            }
+        } catch (error) {
+            if (this.statusManager) {
+                this.statusManager.showError(this.config.host, (error as any).message || String(error));
+            }
+            throw error;
         }
     }
 
     async disconnect(): Promise<void> {
-        // Stop keep-alive
-        this.stopKeepAlive();
+        const host = this.config?.host || 'server';
+        
+        if (this.statusManager) {
+            this.statusManager.showTempMessage(`Disconnecting from ${host}`);
+        }
         
         if (this.sftpClient) {
             await this.sftpClient.end();
@@ -178,15 +246,14 @@ export class ConnectionManager {
 
         this.connected = false;
         this.config = undefined;
-        this.connectionRetries = 0;
-        this.ftpConnectionLock = false;
         
-        // Reset health monitoring
-        this.connectionStartTime = undefined;
-        this.keepAliveStatus = 'inactive';
+        // Clear all operation locks when disconnecting
+        this.operationLocks.clear();
+        this.connectionInProgress = false;
         
-        // Clear all active operations on disconnect
-        this.clearAllOperations();
+        if (this.statusManager) {
+            this.statusManager.showDisconnected();
+        }
     }
 
     isConnected(): boolean {
@@ -202,26 +269,10 @@ export class ConnectionManager {
             throw new Error('Not connected to remote server');
         }
 
-        this.addOperation('listing files');
-        try {
-            if (this.config.protocol === 'sftp') {
-                return await this.listFilesSftp(path);
-            } else {
-                return await this.listFilesFtp(path);
-            }
-        } catch (error) {
-            if (this.isConnectionError(error)) {
-                await this.reconnect();
-                // Retry the operation after reconnecting
-                if (this.config.protocol === 'sftp') {
-                    return await this.listFilesSftp(path);
-                } else {
-                    return await this.listFilesFtp(path);
-                }
-            }
-            throw error;
-        } finally {
-            this.removeOperation('listing files');
+        if (this.config.protocol === 'sftp') {
+            return await this.listFilesSftp(path);
+        } else {
+            return await this.listFilesFtp(path);
         }
     }
 
@@ -230,26 +281,21 @@ export class ConnectionManager {
             throw new Error('Not connected to remote server');
         }
 
-        this.addOperation('reading file');
+        // Prevent concurrent operations on the same file
+        const operationKey = `read:${path}`;
+        if (this.operationLocks.has(operationKey)) {
+            throw new Error('File operation already in progress');
+        }
+
+        this.operationLocks.add(operationKey);
         try {
             if (this.config.protocol === 'sftp') {
                 return await this.readFileSftp(path);
             } else {
                 return await this.readFileFtp(path);
             }
-        } catch (error) {
-            if (this.isConnectionError(error)) {
-                await this.reconnect();
-                // Retry the operation after reconnecting
-                if (this.config.protocol === 'sftp') {
-                    return await this.readFileSftp(path);
-                } else {
-                    return await this.readFileFtp(path);
-                }
-            }
-            throw error;
         } finally {
-            this.removeOperation('reading file');
+            this.operationLocks.delete(operationKey);
         }
     }
 
@@ -258,32 +304,49 @@ export class ConnectionManager {
             throw new Error('Not connected to remote server');
         }
 
-        this.addOperation('writing file');
+        // Prevent concurrent operations on the same file
+        const operationKey = `write:${path}`;
+        if (this.operationLocks.has(operationKey)) {
+            throw new Error('File operation already in progress');
+        }
+
+        this.operationLocks.add(operationKey);
         try {
             if (this.config.protocol === 'sftp') {
                 await this.writeFileSftp(path, content);
             } else {
                 await this.writeFileFtp(path, content);
             }
-        } catch (error) {
-            if (this.isConnectionError(error)) {
-                await this.reconnect();
-                // Retry the operation after reconnecting
-                if (this.config.protocol === 'sftp') {
-                    await this.writeFileSftp(path, content);
-                } else {
-                    await this.writeFileFtp(path, content);
-                }
-            } else {
-                throw error;
-            }
         } finally {
-            this.removeOperation('writing file');
+            this.operationLocks.delete(operationKey);
         }
     }
 
-    private async connectSftp(): Promise<void> {
+    private async connectSftp(): Promise<void> {        
         if (!this.config) throw new Error('No configuration provided');
+        
+        // Set up a promise that resolves when connectionReady fires
+        const connectionReadyPromise = new Promise<void>((resolve, reject) => {
+            const onReady = () => {
+                this.sftpClient?.off('connectionReady', onReady);
+                this.sftpClient?.off('error', onError);
+                resolve();
+            };
+            
+            const onError = (error: any) => {
+                this.sftpClient?.off('connectionReady', onReady);
+                this.sftpClient?.off('error', onError);
+                reject(error);
+            };
+            
+            // These will be set up after the client is created
+            setTimeout(() => {
+                if (this.sftpClient) {
+                    this.sftpClient.on('connectionReady', onReady);
+                    this.sftpClient.on('error', onError);
+                }
+            }, 100);
+        });
 
         
         // Validate required fields
@@ -337,15 +400,18 @@ export class ConnectionManager {
         
         // Show validation results
         if (validationErrors.length > 0) {
-            console.error('[ConnectionManager] ❌ VALIDATION ERRORS:');
-            validationErrors.forEach((error, index) => {
-                console.error(`  ${index + 1}. ${error}`);
-            });
             throw new Error(`Configuration validation failed: ${validationErrors.join(', ')}`);
         }
         
         try {
-            this.sftpClient = new SftpClient('remote-file-browser');
+            // Create SFTP client with VSCode-optimized concurrency settings
+            this.sftpClient = new (SftpClient as any)('remote-file-browser', {
+                maxConcurrentOps: 3,    // Conservative for VSCode stability
+                queueOnLimit: true      // Queue rather than fail operations
+            });
+            
+            this.setupSftpEventListeners();
+            
         } catch (clientError: any) {
             throw new Error(`Failed to create SFTP client: ${clientError?.message || clientError}`);
         }
@@ -397,7 +463,24 @@ export class ConnectionManager {
                         host: cleanHost,
                         port: this.config.port,
                         username: this.config.username,
-                        privateKey: privateKeyContent
+                        privateKey: privateKeyContent,
+                        // VSCode-optimized timeout configurations with pure-js-sftp 5.0.0
+                        connectTimeout: this.config.connectionTimeout || 30000,
+                        operationTimeout: this.config.operationTimeout || 30000,
+                        chunkTimeout: this.config.operationTimeout || 30000,
+                        gracefulTimeout: 3000,
+                        // Enable connection monitoring for reliability
+                        keepalive: {
+                            enabled: true,
+                            interval: 30000,
+                            maxMissed: 3
+                        },
+                        autoReconnect: {
+                            enabled: true,
+                            maxAttempts: 2,
+                            delay: 1000,
+                            backoff: 2
+                        }
                     };
                     
                     // Always pass passphrase if provided - let ssh2-streams decide if key is encrypted
@@ -427,7 +510,24 @@ export class ConnectionManager {
                     host: cleanHost,
                     port: this.config.port,
                     username: this.config.username,
-                    password: this.config.password
+                    password: this.config.password,
+                    // VSCode-optimized timeout configurations with pure-js-sftp 5.0.0
+                    connectTimeout: this.config.connectionTimeout || 30000,
+                    operationTimeout: this.config.operationTimeout || 30000,
+                    chunkTimeout: this.config.operationTimeout || 30000,
+                    gracefulTimeout: 3000,
+                    // Enable connection monitoring for reliability
+                    keepalive: {
+                        enabled: true,
+                        interval: 30000,
+                        maxMissed: 3
+                    },
+                    autoReconnect: {
+                        enabled: true,
+                        maxAttempts: 2,
+                        delay: 1000,
+                        backoff: 2
+                    }
                 };
             }
             
@@ -436,7 +536,8 @@ export class ConnectionManager {
                 if (this.statusManager) {
                     this.statusManager.showAuthenticating(this.config.host);
                 }
-                await this.sftpClient.connect(connectOptions);
+                await this.sftpClient!.connect(connectOptions);
+            
             } catch (connectError: any) {
                 throw connectError;
             }
@@ -452,6 +553,24 @@ export class ConnectionManager {
             
             // For password authentication or other errors, show generic SFTP error
             throw new Error(`SFTP connection failed: ${errorMessage}`);
+        }
+        
+        // Wait for the connectionReady event before returning (with timeout)
+        const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => {
+                reject(new Error('Timeout waiting for connectionReady event'));
+            }, 10000); // 10 second timeout
+        });
+        
+        try {
+            await Promise.race([connectionReadyPromise, timeoutPromise]);
+        } catch (error: any) {
+            if (error.message?.includes('Timeout waiting for connectionReady')) {
+                // If timeout, try to proceed anyway - connection might be ready
+                this.connected = true; // Force connected status
+            } else {
+                throw error;
+            }
         }
     }
 
@@ -505,10 +624,7 @@ export class ConnectionManager {
     private async listFilesSftp(path: string): Promise<RemoteFileInfo[]> {
         if (!this.sftpClient) throw new Error('SFTP client not connected');
 
-        const files = await this.withOperationTimeout(
-            this.sftpClient.list(path),
-            'list files'
-        );
+        const files = await this.sftpClient.list(path);
         return files
             .filter((file: any) => file.name !== '.' && file.name !== '..')
             .map((file: any) => ({
@@ -522,13 +638,8 @@ export class ConnectionManager {
     private async listFilesFtp(path: string): Promise<RemoteFileInfo[]> {
         if (!this.ftpClient) throw new Error('FTP client not connected');
         
-        // Check if connection is still alive and reconnect if needed
-        await this.ensureFtpConnection();
 
-        const files = await this.withOperationTimeout(
-            this.ftpClient.list(path),
-            'list files'
-        );
+        const files = await this.ftpClient.list(path);
         return files
             .filter((file: any) => file.name !== '.' && file.name !== '..')
             .map((file: any) => ({
@@ -542,18 +653,19 @@ export class ConnectionManager {
     private async readFileSftp(path: string): Promise<string> {
         if (!this.sftpClient) throw new Error('SFTP client not connected');
 
-        const buffer = await this.withOperationTimeout(
-            this.sftpClient.get(path),
-            'read file'
-        );
+        const buffer = await this.sftpClient.get(path);
         return buffer.toString();
     }
 
     private async readFileFtp(path: string): Promise<string> {
         if (!this.ftpClient) throw new Error('FTP client not connected');
         
-        // Check if connection is still alive and reconnect if needed
-        await this.ensureFtpConnection();
+        
+        // Show manual status for FTP download operations only
+        const fileName = path.split('/').pop() || 'file';
+        if (this.statusManager && this.config?.protocol === 'ftp') {
+            this.statusManager.showTempMessage(`Downloading ${fileName}`);
+        }
 
         return new Promise<string>((resolve, reject) => {
             const chunks: Buffer[] = [];
@@ -566,6 +678,10 @@ export class ConnectionManager {
             });
 
             stream.on('end', () => {
+                // Show completion status for FTP only
+                if (this.statusManager && this.config?.protocol === 'ftp') {
+                    this.statusManager.showTempMessage(`Downloaded ${fileName}`);
+                }
                 resolve(Buffer.concat(chunks).toString());
             });
 
@@ -573,41 +689,41 @@ export class ConnectionManager {
                 reject(error);
             });
 
-            this.withOperationTimeout(
-                this.ftpClient!.downloadTo(stream, path),
-                'read file'
-            ).catch(reject);
+            this.ftpClient!.downloadTo(stream, path).catch(reject);
         });
     }
 
     private async writeFileSftp(path: string, content: string): Promise<void> {
-        if (!this.sftpClient) throw new Error('SFTP client not connected');
+        if (!this.sftpClient) {
+            throw new Error('SFTP client not connected');
+        }
 
         // Normalize the path to prevent creation of intermediate directories
         const normalizedPath = path.startsWith('/') ? path : `/${path}`;
         
-        console.log(`SFTP writeFile Debug:
-            Original path: ${path}
-            Normalized path: ${normalizedPath}`);
+        // Use pure-js-sftp native timeout support with method-level override for large files
+        const contentSize = Buffer.byteLength(content, 'utf8');
+        const options: any = {};
         
-        await this.withOperationTimeout(
-            this.sftpClient.put(Buffer.from(content), normalizedPath),
-            'write file'
-        );
+        // For large files (>1MB), use extended timeout - let pure-js-sftp optimize performance
+        if (contentSize > 1024 * 1024) {
+            options.chunkTimeout = this.config?.operationTimeout || 30000;
+        }
+        
+        await this.sftpClient.put(Buffer.from(content), normalizedPath, options);
     }
 
     private async writeFileFtp(path: string, content: string): Promise<void> {
         if (!this.ftpClient) throw new Error('FTP client not connected');
         
-        // Check if connection is still alive and reconnect if needed
-        await this.ensureFtpConnection();
+        // Show manual status for FTP upload operations only
+        const fileName = path.split('/').pop() || 'file';
+        if (this.statusManager && this.config?.protocol === 'ftp') {
+            this.statusManager.showUploadProgress(fileName);
+        }
 
         // Normalize the path to prevent creation of intermediate directories
         const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-
-        console.log(`FTP writeFile Debug:
-            Original path: ${path}
-            Normalized path: ${normalizedPath}`);
 
         // Create a readable stream from the content
         const buffer = Buffer.from(content);
@@ -615,10 +731,12 @@ export class ConnectionManager {
         stream.push(buffer);
         stream.push(null); // End of stream
 
-        await this.withOperationTimeout(
-            this.ftpClient.uploadFrom(stream, normalizedPath),
-            'write file'
-        );
+        await this.ftpClient.uploadFrom(stream, normalizedPath);
+        
+        // Show completion status for FTP only
+        if (this.statusManager && this.config?.protocol === 'ftp') {
+            this.statusManager.showTempMessage(`Uploaded ${fileName}`);
+        }
     }
 
     async deleteFile(path: string, isDirectory: boolean = false): Promise<void> {
@@ -626,28 +744,21 @@ export class ConnectionManager {
             throw new Error('Not connected to server');
         }
 
-        this.addOperation('deleting file');
+        // Prevent concurrent operations on the same file
+        const operationKey = `delete:${path}`;
+        if (this.operationLocks.has(operationKey)) {
+            throw new Error('File operation already in progress');
+        }
+
+        this.operationLocks.add(operationKey);
         try {
             if (this.config?.protocol === 'sftp') {
                 await this.deleteFileSftp(path, isDirectory);
             } else {
                 await this.deleteFileFtp(path, isDirectory);
             }
-        } catch (error) {
-            if (this.isConnectionError(error)) {
-                console.log('Connection lost while deleting file, attempting to reconnect...');
-                await this.reconnect();
-                // Retry the operation after reconnecting
-                if (this.config?.protocol === 'sftp') {
-                    await this.deleteFileSftp(path, isDirectory);
-                } else {
-                    await this.deleteFileFtp(path, isDirectory);
-                }
-            } else {
-                throw error;
-            }
         } finally {
-            this.removeOperation('deleting file');
+            this.operationLocks.delete(operationKey);
         }
     }
 
@@ -656,28 +767,21 @@ export class ConnectionManager {
             throw new Error('Not connected to server');
         }
 
-        this.addOperation('renaming file');
+        // Prevent concurrent operations on the same file
+        const operationKey = `rename:${oldPath}`;
+        if (this.operationLocks.has(operationKey)) {
+            throw new Error('File operation already in progress');
+        }
+
+        this.operationLocks.add(operationKey);
         try {
             if (this.config?.protocol === 'sftp') {
                 await this.renameFileSftp(oldPath, newPath);
             } else {
                 await this.renameFileFtp(oldPath, newPath);
             }
-        } catch (error) {
-            if (this.isConnectionError(error)) {
-                console.log('Connection lost while renaming file, attempting to reconnect...');
-                await this.reconnect();
-                // Retry the operation after reconnecting
-                if (this.config?.protocol === 'sftp') {
-                    await this.renameFileSftp(oldPath, newPath);
-                } else {
-                    await this.renameFileFtp(oldPath, newPath);
-                }
-            } else {
-                throw error;
-            }
         } finally {
-            this.removeOperation('renaming file');
+            this.operationLocks.delete(operationKey);
         }
     }
 
@@ -686,43 +790,29 @@ export class ConnectionManager {
             throw new Error('Not connected to server');
         }
 
-        this.addOperation('checking file');
         try {
             if (this.config?.protocol === 'sftp') {
                 if (!this.sftpClient) throw new Error('SFTP client not connected');
-                await this.withOperationTimeout(
-                    this.sftpClient.stat(path),
-                    'check file existence'
-                );
+                await this.sftpClient.stat(path);
                 return true;
             } else {
                 if (!this.ftpClient) throw new Error('FTP client not connected');
                 
-                // Check if connection is still alive and reconnect if needed
-                await this.ensureFtpConnection();
                 
                 try {
-                    await this.withOperationTimeout(
-                        this.ftpClient.size(path),
-                        'check file existence'
-                    );
+                    await this.ftpClient.size(path);
                     return true;
                 } catch (error) {
                     // For FTP, try to list the parent directory and check if file exists
                     const parentPath = path.substring(0, path.lastIndexOf('/')) || '/';
                     const fileName = path.substring(path.lastIndexOf('/') + 1);
-                    const files = await this.withOperationTimeout(
-                        this.ftpClient.list(parentPath),
-                        'list directory for file check'
-                    );
+                    const files = await this.ftpClient.list(parentPath);
                     return files.some((file: any) => file.name === fileName);
                 }
             }
         } catch (error) {
             // If we get an error (like "No such file"), the file doesn't exist
             return false;
-        } finally {
-            this.removeOperation('checking file');
         }
     }
 
@@ -731,31 +821,12 @@ export class ConnectionManager {
             throw new Error('Not connected to server');
         }
 
-        this.addOperation('copying file');
-        try {
-            if (isDirectory) {
-                await this.copyDirectoryRecursive(sourcePath, targetPath);
-            } else {
-                // Read file content and write to new location
-                const content = await this.readFile(sourcePath);
-                await this.writeFile(targetPath, content);
-            }
-        } catch (error) {
-            if (this.isConnectionError(error)) {
-                console.log('Connection lost while copying file, attempting to reconnect...');
-                await this.reconnect();
-                // Retry the operation after reconnecting
-                if (isDirectory) {
-                    await this.copyDirectoryRecursive(sourcePath, targetPath);
-                } else {
-                    const content = await this.readFile(sourcePath);
-                    await this.writeFile(targetPath, content);
-                }
-            } else {
-                throw error;
-            }
-        } finally {
-            this.removeOperation('copying file');
+        if (isDirectory) {
+            await this.copyDirectoryRecursive(sourcePath, targetPath);
+        } else {
+            // Read file content and write to new location
+            const content = await this.readFile(sourcePath);
+            await this.writeFile(targetPath, content);
         }
     }
 
@@ -764,10 +835,7 @@ export class ConnectionManager {
         if (this.config?.protocol === 'sftp') {
             if (!this.sftpClient) throw new Error('SFTP client not connected');
             try {
-                await this.withOperationTimeout(
-                    this.sftpClient.mkdir(targetPath),
-                    'create directory'
-                );
+                await this.sftpClient.mkdir(targetPath);
             } catch (error) {
                 // Directory might already exist, check if it's not a "file exists" error
                 if (!(error as any).message?.includes('File exists') && 
@@ -778,14 +846,9 @@ export class ConnectionManager {
         } else {
             if (!this.ftpClient) throw new Error('FTP client not connected');
             
-            // Check if connection is still alive and reconnect if needed
-            await this.ensureFtpConnection();
             
             try {
-                await this.withOperationTimeout(
-                    this.ftpClient.ensureDir(targetPath),
-                    'create directory'
-                );
+                await this.ftpClient.ensureDir(targetPath);
             } catch (error) {
                 // Ignore if directory already exists
             }
@@ -811,40 +874,31 @@ export class ConnectionManager {
 
         if (isDirectory) {
             // For directories, we need to recursively delete contents first
-            const files = await this.withOperationTimeout(
-                this.sftpClient.list(path),
-                'list directory for deletion'
-            );
+            const files = await this.sftpClient.list(path);
             for (const file of files) {
                 if (file.name !== '.' && file.name !== '..') {
                     const filePath = path === '/' ? `/${file.name}` : `${path}/${file.name}`;
                     await this.deleteFileSftp(filePath, file.type === 'd');
                 }
             }
-            await this.withOperationTimeout(
-                this.sftpClient.rmdir(path),
-                'delete directory'
-            );
+            await this.sftpClient.rmdir(path);
         } else {
-            await this.withOperationTimeout(
-                this.sftpClient.delete(path),
-                'delete file'
-            );
+            await this.sftpClient.delete(path);
         }
     }
 
     private async deleteFileFtp(path: string, isDirectory: boolean): Promise<void> {
         if (!this.ftpClient) throw new Error('FTP client not connected');
         
-        // Check if connection is still alive and reconnect if needed
-        await this.ensureFtpConnection();
+        // Show manual status for FTP delete operations only
+        const fileName = path.split('/').pop() || 'item';
+        if (this.statusManager && this.config?.protocol === 'ftp') {
+            this.statusManager.showTempMessage(`Deleting ${fileName}`);
+        }
 
         if (isDirectory) {
             // For directories, we need to recursively delete contents first
-            const files = await this.withOperationTimeout(
-                this.ftpClient.list(path),
-                'list directory for deletion'
-            );
+            const files = await this.ftpClient.list(path);
             for (const file of files) {
                 if (file.name !== '.' && file.name !== '..') {
                     const filePath = path === '/' ? `/${file.name}` : `${path}/${file.name}`;
@@ -852,292 +906,48 @@ export class ConnectionManager {
                     await this.deleteFileFtp(filePath, isFileDirectory);
                 }
             }
-            await this.withOperationTimeout(
-                this.ftpClient.removeDir(path),
-                'delete directory'
-            );
+            await this.ftpClient.removeDir(path);
         } else {
-            await this.withOperationTimeout(
-                this.ftpClient.remove(path),
-                'delete file'
-            );
+            await this.ftpClient.remove(path);
+        }
+        
+        // Show completion status for FTP only
+        if (this.statusManager && this.config?.protocol === 'ftp') {
+            this.statusManager.showTempMessage(`Deleted ${fileName}`);
         }
     }
 
     private async renameFileSftp(oldPath: string, newPath: string): Promise<void> {
         if (!this.sftpClient) throw new Error('SFTP client not connected');
-        await this.withOperationTimeout(
-            this.sftpClient.rename(oldPath, newPath),
-            'rename file'
-        );
+        await this.sftpClient.rename(oldPath, newPath);
     }
 
     private async renameFileFtp(oldPath: string, newPath: string): Promise<void> {
         if (!this.ftpClient) throw new Error('FTP client not connected');
         
-        // Check if connection is still alive and reconnect if needed
-        await this.ensureFtpConnection();
+        // Show manual status for FTP rename operations only
+        const oldFileName = oldPath.split('/').pop() || 'item';
+        const newFileName = newPath.split('/').pop() || 'item';
+        if (this.statusManager && this.config?.protocol === 'ftp') {
+            this.statusManager.showTempMessage(`Renaming ${oldFileName}`);
+        }
         
-        await this.withOperationTimeout(
-            this.ftpClient.rename(oldPath, newPath),
-            'rename file'
-        );
-    }
-
-    private isConnectionError(error: any): boolean {
-        const errorMessage = error?.message || error?.toString() || '';
-        const errorCode = error?.code || '';
+        await this.ftpClient.rename(oldPath, newPath);
         
-        // Common connection error patterns for both SFTP and FTP
-        const connectionErrors = [
-            // Network-level errors
-            'ECONNRESET',
-            'ECONNREFUSED', 
-            'ETIMEDOUT',
-            'ENOTFOUND',
-            'EHOSTUNREACH',
-            'ENETUNREACH',
-            'EPIPE',
-            'ECONNABORTED',
-            
-            // Generic connection messages
-            'Connection closed',
-            'Connection lost',
-            'Connection terminated',
-            'Socket closed',
-            'Socket hang up',
-            'read ECONNRESET',
-            'write ECONNRESET',
-            
-            // FTP-specific error patterns (from basic-ftp library)
-            'Connection timeout',
-            'Control socket closed',
-            'Data connection timeout',
-            'Lost connection',
-            'Server closed connection',
-            'Transfer timeout',
-            'Passive connection failed',
-            'PASV timeout',
-            'LIST timeout',
-            'Connection interrupted',
-            
-            // SSH/SFTP specific errors
-            'All configured authentication methods failed',
-            'Connection reset by peer',
-            'Handshake failed'
-        ];
-        
-        return connectionErrors.some(pattern => 
-            errorMessage.includes(pattern) || errorCode === pattern
-        );
-    }
-
-    private async reconnect(): Promise<void> {
-        
-        try {
-            // Clean up existing connections
-            this.stopKeepAlive();
-            this.connected = false;
-            if (this.sftpClient) {
-                try {
-                    await this.sftpClient.end();
-                } catch (e) {
-                    // Ignore cleanup errors
-                }
-                this.sftpClient = undefined;
-            }
-            if (this.ftpClient) {
-                try {
-                    this.ftpClient.close();
-                } catch (e) {
-                    // Ignore cleanup errors
-                }
-                this.ftpClient = undefined;
-            }
-
-            // Reconnect using stored config with retry logic
-            if (this.config) {
-                await this.connectWithRetry();
-                this.connected = true;
-                
-                // Restart keep-alive
-                if (this.config.enableKeepAlive !== false) {
-                    this.startKeepAlive();
-                }
-                
-            } else {
-                throw new Error('No configuration available for reconnection');
-            }
-        } catch (error) {
-            console.error('Failed to reconnect:', error);
-            this.connected = false;
-            throw new Error(`Connection lost and failed to reconnect: ${error}`);
+        // Show completion status for FTP only
+        if (this.statusManager && this.config?.protocol === 'ftp') {
+            this.statusManager.showTempMessage(`Renamed to ${newFileName}`);
         }
     }
+
 
     getConnectionInfo(): ConnectionConfig | undefined {
         return this.config;
     }
 
-    getConnectionHealth(): ConnectionHealth {
-        const uptime = this.connectionStartTime ? 
-            Date.now() - this.connectionStartTime.getTime() : undefined;
 
-        return {
-            isConnected: this.connected,
-            lastSuccessfulOperation: this.lastSuccessfulOperation,
-            consecutiveFailures: this.consecutiveFailures,
-            totalConnections: this.totalConnections,
-            uptime,
-            keepAliveStatus: this.keepAliveStatus,
-            lastError: this.lastError
-        };
-    }
 
-    private recordOperationSuccess(): void {
-        this.lastSuccessfulOperation = new Date();
-        this.consecutiveFailures = 0;
-        this.lastError = undefined;
-    }
 
-    private recordOperationFailure(error: any): void {
-        this.consecutiveFailures++;
-        this.lastError = error?.message || error?.toString() || 'Unknown error';
-    }
 
-    private async withOperationTimeout<T>(operation: Promise<T>, operationName?: string): Promise<T> {
-        try {
-            let result: T;
-            
-            const operationTimeout = this.config?.operationTimeout || 60000; // Default: 60 seconds
-            
-            if (operationTimeout <= 0) {
-                result = await operation; // Timeout disabled
-            } else {
-                const timeout = operationTimeout;
-                
-                result = await new Promise<T>((resolve, reject) => {
-                    // Set up the timeout
-                    const timeoutId = setTimeout(() => {
-                        reject(new Error(`Operation ${operationName || 'timeout'} exceeded ${timeout}ms timeout`));
-                    }, timeout);
-
-                    // Handle the operation
-                    operation
-                        .then((result) => {
-                            clearTimeout(timeoutId);
-                            resolve(result);
-                        })
-                        .catch((error) => {
-                            clearTimeout(timeoutId);
-                            reject(error);
-                        });
-                });
-            }
-            
-            // Record success
-            this.recordOperationSuccess();
-            return result;
-            
-        } catch (error) {
-            // Record failure
-            this.recordOperationFailure(error);
-            throw error;
-        }
-    }
-
-    private startKeepAlive(): void {
-        if (!this.config || this.config.enableKeepAlive === false) {
-            return;
-        }
-
-        const interval = this.config.keepAliveInterval || 30000;
-        this.keepAliveStatus = 'active';
-        
-        this.keepAliveInterval = setInterval(async () => {
-            if (!this.connected) {
-                this.stopKeepAlive();
-                return;
-            }
-
-            try {
-                await this.performKeepAliveCheck();
-                // Keep-alive succeeded, ensure status is active
-                if (this.keepAliveStatus === 'failing') {
-                    this.keepAliveStatus = 'active';
-                }
-            } catch (error) {
-                console.warn('Keep-alive check failed, attempting reconnection:', error);
-                this.keepAliveStatus = 'failing';
-                try {
-                    await this.reconnect();
-                    this.keepAliveStatus = 'active';
-                } catch (reconnectError) {
-                    console.error('Keep-alive reconnection failed:', reconnectError);
-                    this.stopKeepAlive();
-                }
-            }
-        }, interval);
-
-    }
-
-    private stopKeepAlive(): void {
-        if (this.keepAliveInterval) {
-            clearInterval(this.keepAliveInterval);
-            this.keepAliveInterval = undefined;
-        }
-    }
-
-    private async performKeepAliveCheck(): Promise<void> {
-        if (!this.config) return;
-
-        if (this.config.protocol === 'sftp') {
-            // For SFTP, try to list the current directory
-            if (this.sftpClient) {
-                await this.withOperationTimeout(
-                    this.sftpClient.list(this.config.remotePath || '/'),
-                    'keep-alive check'
-                );
-            }
-        } else {
-            // For FTP, try to get the current directory
-            if (this.ftpClient) {
-                await this.withOperationTimeout(
-                    this.ftpClient.pwd(),
-                    'keep-alive check'
-                );
-            }
-        }
-    }
-
-    private async ensureFtpConnection(): Promise<void> {
-        if (!this.ftpClient || !this.config) return;
-        
-        // Check if FTP connection is still alive by testing if it's closed
-        if (this.ftpClient.closed) {
-            // Prevent concurrent reconnection attempts
-            if (this.ftpConnectionLock) {
-                // Wait for ongoing reconnection to complete
-                while (this.ftpConnectionLock) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                }
-                return;
-            }
-            
-            this.ftpConnectionLock = true;
-            try {
-                // Close the old client first
-                if (this.ftpClient) {
-                    this.ftpClient.close();
-                }
-                await this.connectFtp();
-            } catch (error) {
-                console.error('FTP reconnection failed:', error);
-                throw new Error(`FTP reconnection failed: ${(error as any).message || error}`);
-            } finally {
-                this.ftpConnectionLock = false;
-            }
-        }
-    }
 
 }
