@@ -896,24 +896,47 @@ export class ConnectionManager {
             this.statusManager.showTempMessage(`Deleting ${fileName}`);
         }
 
-        if (isDirectory) {
-            // For directories, we need to recursively delete contents first
-            const files = await this.ftpClient.list(path);
-            for (const file of files) {
-                if (file.name !== '.' && file.name !== '..') {
-                    const filePath = path === '/' ? `/${file.name}` : `${path}/${file.name}`;
-                    const isFileDirectory = (file as any).type === 1; // 1 = directory in basic-ftp
-                    await this.deleteFileFtp(filePath, isFileDirectory);
+        try {
+            if (isDirectory) {
+                // For directories, we need to recursively delete contents first
+                try {
+                    const files = await this.ftpClient.list(path);
+                    for (const file of files) {
+                        if (file.name !== '.' && file.name !== '..') {
+                            const filePath = path === '/' ? `/${file.name}` : `${path}/${file.name}`;
+                            const isFileDirectory = (file as any).type === 1; // 1 = directory in basic-ftp
+                            await this.deleteFileFtp(filePath, isFileDirectory);
+                        }
+                    }
+                } catch (listError) {
+                    // If listing fails, directory might be empty or inaccessible
+                    console.log(`Warning: Could not list directory contents for ${path}: ${listError}`);
                 }
+                
+                // Try to remove the directory
+                await this.ftpClient.removeDir(path);
+            } else {
+                // For files, try to remove directly
+                await this.ftpClient.remove(path);
             }
-            await this.ftpClient.removeDir(path);
-        } else {
-            await this.ftpClient.remove(path);
-        }
-        
-        // Show completion status for FTP only
-        if (this.statusManager && this.config?.protocol === 'ftp') {
-            this.statusManager.showTempMessage(`Deleted ${fileName}`);
+            
+            // Show completion status for FTP only
+            if (this.statusManager && this.config?.protocol === 'ftp') {
+                this.statusManager.showTempMessage(`Deleted ${fileName}`);
+            }
+        } catch (error) {
+            // More specific error handling
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            
+            if (errorMessage.includes('550') && errorMessage.includes('cannot find')) {
+                throw new Error(`File or directory not found: ${fileName}`);
+            } else if (errorMessage.includes('550') && errorMessage.includes('not empty')) {
+                throw new Error(`Directory not empty: ${fileName}. Please delete contents first.`);
+            } else if (errorMessage.includes('550')) {
+                throw new Error(`Permission denied or file system error: ${fileName}`);
+            } else {
+                throw new Error(`Delete failed: ${errorMessage}`);
+            }
         }
     }
 
@@ -943,6 +966,64 @@ export class ConnectionManager {
 
     getConnectionInfo(): ConnectionConfig | undefined {
         return this.config;
+    }
+
+    async createFile(path: string, content: string = ''): Promise<void> {
+        if (!this.connected) {
+            throw new Error('Not connected to server');
+        }
+
+        // writeFile metodu zaten kendi lock sistemini kullanıyor, 
+        // burada ayrı lock kullanmayalım
+        await this.writeFile(path, content);
+    }
+
+    async createDirectory(path: string): Promise<void> {
+        if (!this.connected) {
+            throw new Error('Not connected to server');
+        }
+
+        const lockKey = `mkdir:${path}`;
+        if (this.operationLocks.has(lockKey)) {
+            throw new Error('Directory creation already in progress');
+        }
+
+        this.operationLocks.add(lockKey);
+        try {
+            if (this.config?.protocol === 'sftp' && this.sftpClient) {
+                await this.createDirectorySftp(path);
+            } else if (this.config?.protocol === 'ftp' && this.ftpClient) {
+                await this.createDirectoryFtp(path);
+            } else {
+                throw new Error('No valid connection available');
+            }
+        } finally {
+            this.operationLocks.delete(lockKey);
+        }
+    }
+
+    private async createDirectorySftp(path: string): Promise<void> {
+        if (!this.sftpClient) {
+            throw new Error('SFTP client not connected');
+        }
+
+        try {
+            await this.sftpClient.mkdir(path);
+        } catch (error) {
+            throw new Error(`Failed to create directory via SFTP: ${error}`);
+        }
+    }
+
+    private async createDirectoryFtp(path: string): Promise<void> {
+        if (!this.ftpClient) {
+            throw new Error('FTP client not connected');
+        }
+
+        try {
+            await this.ftpClient.ensureDir(path);
+        } catch (error) {
+            throw new Error(`Failed to create directory via FTP: ${error}`);
+        }
     }
 
 

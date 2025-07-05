@@ -157,6 +157,11 @@ export class RemoteFileProvider implements vscode.TreeDataProvider<RemoteFileIte
         this.refresh();
     }
 
+    clearDirectoryCache(directoryPath: string): void {
+        this.directoryContents.delete(directoryPath);
+        this.refresh();
+    }
+
     navigateToParent(): void {
         if (!this.connectionManager.isConnected()) {
             return;

@@ -5,6 +5,43 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.0] - 2025-07-05
+
+### 📁 File & Folder Creation System
+- **New File Creation**: Create new files directly on remote servers
+  - "New File" button (📄) in Remote Files toolbar for current directory
+  - Right-click context menu "New File" option for specific directories
+  - Input validation prevents invalid file names and path separators
+  - Automatic file creation with empty content, ready for editing
+  - Smart path resolution for both toolbar and context menu usage
+
+- **New Folder Creation**: Create new directories on remote servers
+  - "New Folder" button (📁) in Remote Files toolbar for current directory  
+  - Right-click context menu "New Folder" option for specific directories
+  - Input validation prevents invalid folder names and reserved characters
+  - Automatic directory creation with proper permissions
+  - Intelligent parent directory detection and path construction
+
+### 🚀 Enhanced User Experience
+- **Dual Access Methods**: Both toolbar buttons and context menu options available
+- **Smart Context Detection**: Commands work on current directory (toolbar) or selected directory (context menu)
+- **Instant Feedback**: Success/error messages with file/folder names
+- **Cache Management**: Automatic cache clearing and view refresh after creation
+- **Professional UI**: Consistent iconography with VS Code's native file explorer
+
+### 🛠️ Technical Improvements
+- **Protocol Support**: Full SFTP and FTP compatibility for file/folder creation
+- **Operation Locking**: Prevents concurrent creation operations on same paths
+- **Error Handling**: Comprehensive error catching with user-friendly messages
+- **Path Validation**: Smart input validation prevents common naming issues
+- **Cache Optimization**: Efficient directory cache clearing for instant view updates
+
+### 🔧 Connection Manager Enhancements
+- **createFile()**: New method for creating empty files on remote servers
+- **createDirectory()**: New method for creating directories with proper error handling
+- **Enhanced Locking**: Operation locks prevent duplicate creation attempts
+- **Protocol Abstraction**: Unified interface for both SFTP and FTP directory creation
+
 ## [4.1.0] - 2025-07-05
 
 ### 🔍 Smart File Search & Filtering

@@ -38,6 +38,8 @@ Edit remote files seamlessly in VSCode/Cursor with instant access and automatic 
 
 🎨 **Enhanced File Icons** - Intelligent file type detection with VS Code theme-compatible icons for better visual organization
 
+📁 **File & Folder Creation** - Create new files and directories directly on remote servers with intuitive toolbar and context menu access
+
 ## Getting Started
 
 ### Initial Setup
@@ -219,6 +221,36 @@ The Remote File Browser includes a powerful search feature to help you quickly f
 - Use specific file extensions to find file types: `.js`, `.py`, `.txt`
 - Search for partial names: `config` will find `config.json`, `app.config`, etc.
 - Combine with navigation: Search in one folder, then navigate to another to search there
+
+### Creating New Files and Folders
+
+The Remote File Browser allows you to create new files and directories directly on the remote server:
+
+#### Creating New Files
+1. **From Toolbar**: Click the "New File" button (📄) in the Remote Files toolbar to create a file in the current directory
+2. **From Context Menu**: Right-click on any directory and select "New File" to create a file inside that specific directory
+3. **Enter file name** in the input dialog that appears
+4. **Press Enter** to create the file
+5. The new empty file will be created and the directory will refresh automatically
+
+#### Creating New Folders
+1. **From Toolbar**: Click the "New Folder" button (📁) in the Remote Files toolbar to create a folder in the current directory
+2. **From Context Menu**: Right-click on any directory and select "New Folder" to create a subfolder inside that specific directory
+3. **Enter folder name** in the input dialog that appears
+4. **Press Enter** to create the folder
+5. The new directory will be created and the view will refresh automatically
+
+#### File/Folder Naming Rules
+- **Cannot be empty**: Names must contain at least one character
+- **No path separators**: Cannot contain `/` or `\` characters
+- **No reserved names**: Cannot use `.` or `..` for folders
+- **Case sensitive**: Names are case-sensitive on most remote servers
+
+#### Tips for File/Folder Creation
+- **Immediate editing**: Created files can be opened immediately for editing
+- **Automatic refresh**: The file tree updates automatically after creation
+- **Error handling**: Clear error messages help resolve naming issues
+- **Works with both protocols**: Full support for both SFTP and FTP servers
 
 ### Renaming and Deleting Remote Files
 You can rename or delete files and directories directly on the remote server:

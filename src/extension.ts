@@ -206,6 +206,14 @@ export function activate(context: vscode.ExtensionContext) {
             clearDirectorySearch(item);
         }),
 
+        vscode.commands.registerCommand('remoteFileBrowser.createNewFile', async (item) => {
+            await createNewFile(item);
+        }),
+
+        vscode.commands.registerCommand('remoteFileBrowser.createNewFolder', async (item) => {
+            await createNewFolder(item);
+        }),
+
         vscode.commands.registerCommand('remoteFileBrowser.openUserManual', async () => {
             await openUserManual(context);
         }),
@@ -1031,6 +1039,10 @@ async function deleteRemoteFile(item: any) {
                     await connectionManager.deleteFile(item.path, item.isDirectory);
                     progress.report({ increment: 100 });
                     
+                    // Parent dizinin önbelleğini temizle
+                    const parentPath = item.path.substring(0, item.path.lastIndexOf('/')) || '/';
+                    remoteFileProvider.clearDirectoryCache(parentPath);
+                    
                     // Refresh the remote file tree
                     remoteFileProvider.refresh();
                     
@@ -1042,6 +1054,10 @@ async function deleteRemoteFile(item: any) {
             // For SFTP, just execute without progress notification (uses real events)
             try {
                 await connectionManager.deleteFile(item.path, item.isDirectory);
+                
+                // Parent dizinin önbelleğini temizle
+                const parentPath = item.path.substring(0, item.path.lastIndexOf('/')) || '/';
+                remoteFileProvider.clearDirectoryCache(parentPath);
                 
                 // Refresh the remote file tree
                 remoteFileProvider.refresh();
@@ -1842,6 +1858,112 @@ function clearDirectorySearch(item: RemoteFileItem): void {
     
     remoteFileProvider.clearDirectoryFilter(item.path);
     vscode.window.showInformationMessage(`Search cleared for: ${item.label}`);
+}
+
+async function createNewFile(item?: RemoteFileItem): Promise<void> {
+    if (!connectionManager.isConnected()) {
+        vscode.window.showErrorMessage('Not connected to a remote server');
+        return;
+    }
+
+    // Hedef klasörü belirle
+    let targetPath: string;
+    if (item && item.isDirectory) {
+        // Klasöre sağ tıklandı
+        targetPath = item.path;
+    } else {
+        // Toolbar'dan tıklandı, mevcut klasörü kullan
+        targetPath = remoteFileProvider.getCurrentDirectory();
+    }
+
+    const fileName = await vscode.window.showInputBox({
+        prompt: 'Enter file name',
+        placeHolder: 'example.txt',
+        validateInput: (value) => {
+            if (!value || value.trim() === '') {
+                return 'File name cannot be empty';
+            }
+            if (value.includes('/') || value.includes('\\')) {
+                return 'File name cannot contain path separators';
+            }
+            if (value.startsWith('.') && value.trim() === '.') {
+                return 'Invalid file name';
+            }
+            return null;
+        }
+    });
+
+    if (!fileName) {
+        return;
+    }
+
+    try {
+        const fullPath = targetPath === '/' ? `/${fileName}` : `${targetPath}/${fileName}`;
+        
+        // Boş dosya oluştur
+        await connectionManager.createFile(fullPath, '');
+        
+        // Önbelleği temizle ve yenile
+        remoteFileProvider.clearDirectoryCache(targetPath);
+        remoteFileProvider.refresh();
+        
+        vscode.window.showInformationMessage(`File created: ${fileName}`);
+    } catch (error) {
+        vscode.window.showErrorMessage(`Failed to create file: ${error}`);
+    }
+}
+
+async function createNewFolder(item?: RemoteFileItem): Promise<void> {
+    if (!connectionManager.isConnected()) {
+        vscode.window.showErrorMessage('Not connected to a remote server');
+        return;
+    }
+
+    // Hedef klasörü belirle
+    let targetPath: string;
+    if (item && item.isDirectory) {
+        // Klasöre sağ tıklandı
+        targetPath = item.path;
+    } else {
+        // Toolbar'dan tıklandı, mevcut klasörü kullan
+        targetPath = remoteFileProvider.getCurrentDirectory();
+    }
+
+    const folderName = await vscode.window.showInputBox({
+        prompt: 'Enter folder name',
+        placeHolder: 'new-folder',
+        validateInput: (value) => {
+            if (!value || value.trim() === '') {
+                return 'Folder name cannot be empty';
+            }
+            if (value.includes('/') || value.includes('\\')) {
+                return 'Folder name cannot contain path separators';
+            }
+            if (value === '.' || value === '..') {
+                return 'Invalid folder name';
+            }
+            return null;
+        }
+    });
+
+    if (!folderName) {
+        return;
+    }
+
+    try {
+        const fullPath = targetPath === '/' ? `/${folderName}` : `${targetPath}/${folderName}`;
+        
+        // Klasör oluştur
+        await connectionManager.createDirectory(fullPath);
+        
+        // Önbelleği temizle ve yenile
+        remoteFileProvider.clearDirectoryCache(targetPath);
+        remoteFileProvider.refresh();
+        
+        vscode.window.showInformationMessage(`Folder created: ${folderName}`);
+    } catch (error) {
+        vscode.window.showErrorMessage(`Failed to create folder: ${error}`);
+    }
 }
 
 export function deactivate() {

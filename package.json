@@ -2,7 +2,7 @@
 	"name": "remote-file-browser",
 	"displayName": "Remote File Browser",
 	"description": "Browse remote files via SFTP/FTP without downloading them locally",
-	"version": "4.1.0",
+	"version": "4.2.0",
 	"publisher": "cartpauj",
 	"icon": "icon.png",
 	"repository": {
@@ -160,6 +160,18 @@
 				"title": "Clear Search",
 				"category": "Remote File Browser",
 				"icon": "$(clear-all)"
+			},
+			{
+				"command": "remoteFileBrowser.createNewFile",
+				"title": "New File",
+				"category": "Remote File Browser",
+				"icon": "$(new-file)"
+			},
+			{
+				"command": "remoteFileBrowser.createNewFolder",
+				"title": "New Folder",
+				"category": "Remote File Browser",
+				"icon": "$(new-folder)"
 			}
 		],
 		"viewsContainers": {
@@ -189,24 +201,34 @@
 		"menus": {
 			"view/title": [
 				{
+					"command": "remoteFileBrowser.createNewFile",
+					"when": "view == remoteFilesList",
+					"group": "navigation@1"
+				},
+				{
+					"command": "remoteFileBrowser.createNewFolder",
+					"when": "view == remoteFilesList",
+					"group": "navigation@2"
+				},
+				{
 					"command": "remoteFileBrowser.navigateToParent",
 					"when": "view == remoteFilesList && remoteFileBrowser.canNavigateUp",
-					"group": "navigation"
+					"group": "navigation@3"
 				},
 				{
 					"command": "remoteFileBrowser.refresh",
 					"when": "view == remoteFilesList",
-					"group": "navigation"
+					"group": "navigation@4"
 				},
 				{
 					"command": "remoteFileBrowser.disconnect",
 					"when": "view == remoteFilesList",
-					"group": "navigation"
+					"group": "navigation@5"
 				},
 				{
 					"command": "remoteFileBrowser.cleanupTempFiles",
 					"when": "view == remoteFilesList",
-					"group": "navigation"
+					"group": "navigation@6"
 				}
 			],
 			"editor/title/context": [
@@ -218,14 +240,24 @@
 			],
 			"view/item/context": [
 				{
+					"command": "remoteFileBrowser.createNewFile",
+					"when": "view == remoteFilesList && viewItem == directory",
+					"group": "0_create"
+				},
+				{
+					"command": "remoteFileBrowser.createNewFolder",
+					"when": "view == remoteFilesList && viewItem == directory",
+					"group": "0_create"
+				},
+				{
 					"command": "remoteFileBrowser.searchInDirectory",
 					"when": "view == remoteFilesList && viewItem == directory",
-					"group": "0_search"
+					"group": "1_search"
 				},
 				{
 					"command": "remoteFileBrowser.clearDirectorySearch",
 					"when": "view == remoteFilesList && viewItem == directory",
-					"group": "0_search"
+					"group": "1_search"
 				},
 				{
 					"command": "remoteFileBrowser.downloadFile",
