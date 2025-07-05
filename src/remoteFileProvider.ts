@@ -245,7 +245,23 @@ export class RemoteFileProvider implements vscode.TreeDataProvider<RemoteFileIte
             if (!files) {
                 // İlk kez bu klasör açılıyor, FTP'den çek
                 const isRootListing = !element && path === this.getCurrentDirectory();
-                files = await this.connectionManager.listFiles(path);
+                try {
+                    files = await this.connectionManager.listFiles(path);
+                } catch (error) {
+                    // If list failed due to connection issue, try to reconnect and retry
+                    if (this.connectionManager.isConnectionError(error)) {
+                        vscode.window.showInformationMessage('Connection lost while browsing. Attempting to reconnect...');
+                        try {
+                            await this.connectionManager.ensureConnection();
+                            files = await this.connectionManager.listFiles(path);
+                            vscode.window.showInformationMessage('Reconnected successfully.');
+                        } catch (retryError) {
+                            throw retryError;
+                        }
+                    } else {
+                        throw error;
+                    }
+                }
                 
                 // Önbelleğe kaydet
                 this.directoryContents.set(path, files);

@@ -40,10 +40,77 @@ export class ConnectionManager {
     private statusManager?: ConnectionStatusManager;
     private operationLocks = new Set<string>();
     private connectionInProgress = false;
+    private lastActivity = Date.now();
+    private reconnectAttempts = 0;
+    private maxReconnectAttempts = 3;
 
     public setStatusManager(statusManager: ConnectionStatusManager) {
         this.statusManager = statusManager;
         statusManager.setConnectionManager(this);
+    }
+
+    private updateLastActivity() {
+        this.lastActivity = Date.now();
+    }
+
+    public async ensureConnection(): Promise<void> {
+        if (!this.connected || !this.isConnectionAlive()) {
+            // Bağlantı konfigürasyonu yoksa manuel reconnect gerekli
+            if (!this.config) {
+                throw new Error('Connection configuration has been lost. Please disconnect and reconnect manually to restore the connection.');
+            }
+            
+            if (this.reconnectAttempts < this.maxReconnectAttempts) {
+                this.reconnectAttempts++;
+                if (this.statusManager) {
+                    this.statusManager.showTempMessage('Reconnecting to server...');
+                }
+                await this.reconnect();
+            } else {
+                throw new Error('Connection to server was lost and could not be restored. Please reconnect manually.');
+            }
+        }
+        this.updateLastActivity();
+    }
+
+    private isConnectionAlive(): boolean {
+        // Session timeout check (30 dakika inaktivite sonrası bağlantı süresi dolmuş kabul edilir)
+        const sessionTimeout = 30 * 60 * 1000; // 30 minutes
+        const timeSinceLastActivity = Date.now() - this.lastActivity;
+        
+        if (timeSinceLastActivity > sessionTimeout) {
+            return false;
+        }
+        
+        // FTP ve SFTP için farklı connection check
+        if (this.config?.protocol === 'sftp') {
+            return this.sftpClient !== undefined && this.connected;
+        } else if (this.config?.protocol === 'ftp') {
+            return this.ftpClient?.closed !== true && this.connected;
+        }
+        return false;
+    }
+
+    private async reconnect(): Promise<void> {
+        if (!this.config) {
+            throw new Error('No connection configuration available for reconnection');
+        }
+
+        try {
+            // Mevcut bağlantıyı temizle ama config'i koru
+            await this.disconnect(false);
+            
+            // Tekrar bağlan
+            await this.connect(this.config);
+            
+            this.reconnectAttempts = 0; // Başarılı olursa sayacı sıfırla
+            
+            if (this.statusManager) {
+                this.statusManager.showTempMessage('Reconnected successfully');
+            }
+        } catch (error) {
+            throw new Error(`Reconnection failed: ${error}`);
+        }
     }
 
     private setupSftpEventListeners() {
@@ -227,7 +294,7 @@ export class ConnectionManager {
         }
     }
 
-    async disconnect(): Promise<void> {
+    async disconnect(clearConfig: boolean = true): Promise<void> {
         const host = this.config?.host || 'server';
         
         if (this.statusManager) {
@@ -245,7 +312,11 @@ export class ConnectionManager {
         }
 
         this.connected = false;
-        this.config = undefined;
+        
+        // Config'i sadece manual disconnect'te temizle, auto-reconnect sırasında koru
+        if (clearConfig) {
+            this.config = undefined;
+        }
         
         // Clear all operation locks when disconnecting
         this.operationLocks.clear();
@@ -265,11 +336,10 @@ export class ConnectionManager {
     }
 
     async listFiles(path: string): Promise<RemoteFileInfo[]> {
-        if (!this.connected || !this.config) {
-            throw new Error('Not connected to remote server');
-        }
+        // Bağlantının aktif olduğundan emin ol
+        await this.ensureConnection();
 
-        if (this.config.protocol === 'sftp') {
+        if (this.config?.protocol === 'sftp') {
             return await this.listFilesSftp(path);
         } else {
             return await this.listFilesFtp(path);
@@ -277,9 +347,8 @@ export class ConnectionManager {
     }
 
     async readFile(path: string): Promise<string> {
-        if (!this.connected || !this.config) {
-            throw new Error('Not connected to remote server');
-        }
+        // Bağlantının aktif olduğundan emin ol
+        await this.ensureConnection();
 
         // Prevent concurrent operations on the same file
         const operationKey = `read:${path}`;
@@ -289,20 +358,45 @@ export class ConnectionManager {
 
         this.operationLocks.add(operationKey);
         try {
-            if (this.config.protocol === 'sftp') {
+            if (this.config?.protocol === 'sftp') {
                 return await this.readFileSftp(path);
             } else {
                 return await this.readFileFtp(path);
             }
+        } catch (error) {
+            // Eğer bağlantı hatası ise, bir kez daha yeniden bağlanmayı dene
+            if (this.isConnectionError(error)) {
+                try {
+                    await this.reconnect();
+                    if (this.config?.protocol === 'sftp') {
+                        return await this.readFileSftp(path);
+                    } else {
+                        return await this.readFileFtp(path);
+                    }
+                } catch (retryError) {
+                    throw new Error(`Connection to server was lost while trying to open file. The connection has been automatically restored. Please try again.`);
+                }
+            }
+            throw error;
         } finally {
             this.operationLocks.delete(operationKey);
         }
     }
 
+    public isConnectionError(error: any): boolean {
+        const errorMessage = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+        return errorMessage.includes('connection') || 
+               errorMessage.includes('socket') || 
+               errorMessage.includes('timeout') ||
+               errorMessage.includes('disconnected') ||
+               errorMessage.includes('broken pipe') ||
+               errorMessage.includes('enotconn') ||
+               errorMessage.includes('econnreset');
+    }
+
     async writeFile(path: string, content: string): Promise<void> {
-        if (!this.connected || !this.config) {
-            throw new Error('Not connected to remote server');
-        }
+        // Bağlantının aktif olduğundan emin ol
+        await this.ensureConnection();
 
         // Prevent concurrent operations on the same file
         const operationKey = `write:${path}`;
@@ -312,7 +406,7 @@ export class ConnectionManager {
 
         this.operationLocks.add(operationKey);
         try {
-            if (this.config.protocol === 'sftp') {
+            if (this.config?.protocol === 'sftp') {
                 await this.writeFileSftp(path, content);
             } else {
                 await this.writeFileFtp(path, content);
@@ -740,9 +834,8 @@ export class ConnectionManager {
     }
 
     async deleteFile(path: string, isDirectory: boolean = false): Promise<void> {
-        if (!this.isConnected()) {
-            throw new Error('Not connected to server');
-        }
+        // Bağlantının aktif olduğundan emin ol
+        await this.ensureConnection();
 
         // Prevent concurrent operations on the same file
         const operationKey = `delete:${path}`;

@@ -173,6 +173,44 @@ Some users prefer different file opening behaviors. You can customize these in V
 - Status bar confirmation: "Uploaded filename.txt" upon completion
 - Clean status transitions: No more stuck or duplicate status messages
 
+### Automatic Connection Recovery
+The Remote File Browser includes an intelligent auto-reconnection system that provides seamless file access even after connection drops:
+
+#### Session Timeout Handling
+- **30-Minute Session Timeout**: The extension automatically detects when server sessions have expired due to inactivity
+- **Proactive Connection Validation**: Before any file operation, the connection health is checked
+- **Seamless Recovery**: When a connection drop is detected, automatic reconnection happens transparently
+- **No Manual Intervention**: Eliminates the need to manually disconnect and reconnect
+
+#### Automatic Recovery During File Operations
+- **File Opening**: If a connection drops when trying to open a file, the extension will:
+  - Display "Connection lost. Attempting to reconnect..." message
+  - Automatically restore the connection in the background
+  - Complete the file opening operation seamlessly
+  - Show "Reconnected successfully and file downloaded." confirmation
+
+- **File Saving**: If a connection drops during file save operations:
+  - Automatic reconnection occurs before retrying the save
+  - Your changes are preserved and uploaded after reconnection
+  - Clear feedback about the recovery process
+
+- **Directory Browsing**: When browsing folders and the connection is lost:
+  - Automatic background reconnection happens
+  - Directory listing continues without user intervention
+  - Session and current directory are preserved
+
+#### Connection Health Monitoring
+- **Real-time Status Tracking**: Continuous monitoring of connection health for both SFTP and FTP
+- **Smart Error Detection**: Distinguishes between connection issues and file system errors
+- **Intelligent Retry Logic**: Multiple reconnection attempts with graceful fallback
+- **Session Activity Tracking**: Monitors idle time to proactively detect timeout scenarios
+
+**💡 Benefits**:
+- **Reduced Interruptions**: No more "Connection to server was lost" error dialogs
+- **Long-Running Sessions**: Work for hours without worrying about timeouts
+- **Background Recovery**: Reconnection happens transparently without disrupting your workflow
+- **Preserved Context**: Current directory and session state are maintained during reconnection
+
 ### Uploading Local Files to Remote Server
 - Open any local file in VSCode/Cursor
 - **Right-click on the file tab** at the top of the editor

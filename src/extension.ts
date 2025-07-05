@@ -493,7 +493,7 @@ async function connectToRemoteServer() {
 async function disconnectFromRemoteServer() {
     try {
         
-        await connectionManager.disconnect();
+        await connectionManager.disconnect(true); // Manuel disconnect, config'i temizle
         remoteFileProvider.resetToDefaultDirectory();
         
         // Önbelleği ve filtreleri temizle
@@ -589,8 +589,25 @@ async function openRemoteFile(item: any) {
         }
         
         if (shouldDownload) {
-            const content = await connectionManager.readFile(item.path);
-            await vscode.workspace.fs.writeFile(tempUri, Buffer.from(content));
+            try {
+                const content = await connectionManager.readFile(item.path);
+                await vscode.workspace.fs.writeFile(tempUri, Buffer.from(content));
+            } catch (error) {
+                // If read failed due to connection issue, try to reconnect and retry
+                if (connectionManager.isConnectionError(error)) {
+                    vscode.window.showInformationMessage('Connection lost. Attempting to reconnect...');
+                    try {
+                        await connectionManager.ensureConnection();
+                        const content = await connectionManager.readFile(item.path);
+                        await vscode.workspace.fs.writeFile(tempUri, Buffer.from(content));
+                        vscode.window.showInformationMessage('Reconnected successfully and file downloaded.');
+                    } catch (retryError) {
+                        throw retryError;
+                    }
+                } else {
+                    throw error;
+                }
+            }
         }
         
         const document = await vscode.workspace.openTextDocument(tempUri);
@@ -635,7 +652,23 @@ async function openRemoteFile(item: any) {
                     connectionManagerView.getConnectionStatusManager().showUploadProgress(fileName);
                 }
                 
-                await connectionManager.writeFile(item.path, currentContent);
+                try {
+                    await connectionManager.writeFile(item.path, currentContent);
+                } catch (error) {
+                    // If write failed due to connection issue, try to reconnect and retry
+                    if (connectionManager.isConnectionError(error)) {
+                        vscode.window.showInformationMessage('Connection lost during save. Attempting to reconnect...');
+                        try {
+                            await connectionManager.ensureConnection();
+                            await connectionManager.writeFile(item.path, currentContent);
+                            vscode.window.showInformationMessage('Reconnected successfully and file saved.');
+                        } catch (retryError) {
+                            throw retryError;
+                        }
+                    } else {
+                        throw error;
+                    }
+                }
                 
                 // Only show manual completion message for FTP (SFTP uses real events)
                 if (connectionInfo?.protocol === 'ftp') {
@@ -655,8 +688,10 @@ async function openRemoteFile(item: any) {
     } catch (error) {
         let errorMessage: string;
         
-        // Handle specific TypeError for .once function issues
-        if (error instanceof TypeError && error.message.includes('once is not a function')) {
+        // Handle specific connection configuration errors
+        if (error instanceof Error && error.message.includes('Connection configuration has been lost')) {
+            errorMessage = `Connection lost: Please use the disconnect button in the Remote File Browser panel, then reconnect to restore the connection.`;
+        } else if (error instanceof TypeError && error.message.includes('once is not a function')) {
             errorMessage = `Failed to open file: Connection issue detected. Please disconnect and reconnect to the server, then try again.`;
         } else {
             errorMessage = getUserFriendlyErrorMessage(error, 'open file');
@@ -1968,7 +2003,7 @@ async function createNewFolder(item?: RemoteFileItem): Promise<void> {
 
 export function deactivate() {
     if (connectionManager) {
-        connectionManager.disconnect();
+        connectionManager.disconnect(true); // Extension deactivation, config'i temizle
     }
     
     // Clean up connection status manager

@@ -5,6 +5,105 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.3.2] - 2025-07-05
+
+### 🔧 Connection Configuration Persistence Fix
+- **Resolved "No connection configuration available for reconnection" Error**: Fixed critical issue where connection config was being cleared during auto-reconnection attempts
+  - Connection configuration now preserved during automatic reconnection cycles
+  - `disconnect()` method updated with optional `clearConfig` parameter to distinguish between manual and automatic disconnections
+  - Manual disconnects (user-initiated) clear configuration completely as expected
+  - Auto-reconnects preserve configuration to enable seamless session restoration
+
+- **Enhanced Error Handling for Lost Configurations**: Better user guidance when connection state is unrecoverable
+  - Clear error message: "Connection lost: Please use the disconnect button in the Remote File Browser panel, then reconnect to restore the connection."
+  - Prevents confusing "No connection configuration available" technical errors
+  - Guides users to the correct recovery path through the extension UI
+
+- **Improved Connection State Management**: More robust handling of connection lifecycle
+  - Connection configuration persistence across reconnection attempts
+  - Proper cleanup only during intentional disconnections
+  - Automatic session restoration maintains user context and server settings
+  - Reduced likelihood of orphaned connection states
+
+### 🛡️ Reliability Improvements
+- **Automatic Recovery Resilience**: Auto-reconnection system now more reliable after extended idle periods
+- **Configuration State Protection**: Connection settings preserved throughout auto-recovery cycles
+- **User Experience**: Eliminates need for manual disconnect/reconnect when auto-recovery encounters config issues
+
+## [4.3.1] - 2025-07-05
+
+### 🔄 Enhanced Auto-Reconnection & File Access
+- **Session Timeout Handling**: Intelligent detection of idle session expiration (30-minute timeout)
+  - Automatic reconnection when opening files after extended inactivity
+  - Proactive connection validation before file operations
+  - Session activity tracking to detect when server-side timeout occurs
+  - Eliminates "Connection to server was lost while trying to open file" errors
+
+- **Improved File Operations Reliability**: Enhanced error recovery for all file access scenarios
+  - Automatic reconnection during file opening operations
+  - Smart retry mechanism for file downloads and uploads
+  - Seamless recovery from connection drops during file saves
+  - Directory browsing resilience with automatic connection restoration
+
+- **Advanced Connection Monitoring**: More robust connection health detection
+  - Time-based session validation (30-minute idle timeout detection)
+  - Enhanced connection alive checks for both SFTP and FTP protocols
+  - Automatic connection restoration without requiring manual disconnect/reconnect
+  - Real-time connection status updates during recovery operations
+
+### 🛡️ User Experience Improvements
+- **Transparent Recovery**: Background connection restoration with minimal user interruption
+  - "Connection lost. Attempting to reconnect..." informational messages
+  - "Reconnected successfully" confirmation after automatic recovery
+  - Seamless file access after long periods of inactivity
+  - No more forced manual disconnect/reconnect cycles
+
+- **Proactive Connection Management**: Prevention of connection-related errors
+  - Pre-validation of connection state before file operations
+  - Automatic session refresh for long-running VS Code sessions
+  - Smart detection of server-side connection drops
+  - Graceful handling of network interruptions
+
+## [4.3.0] - 2025-07-05
+
+### 🔄 Auto-Reconnection System
+- **Intelligent Connection Management**: Automatic detection and recovery from connection drops
+  - Real-time connection health monitoring for both SFTP and FTP protocols
+  - Automatic reconnection attempts when connection is lost during file operations
+  - Smart error detection for connection-related issues (timeouts, socket errors, disconnects)
+  - Graceful fallback with user-friendly error messages when auto-reconnection fails
+
+- **Enhanced File Operations**: Robust file access with connection resilience
+  - `ensureConnection()` pre-check for all file operations
+  - Automatic retry mechanism for failed operations due to connection issues
+  - Connection restoration without requiring manual disconnect/reconnect
+  - Seamless user experience with minimal interruption during connection drops
+
+- **Connection Health Monitoring**: Proactive connection status tracking
+  - Last activity timestamp tracking for idle timeout detection
+  - Protocol-specific connection validation (SFTP client state, FTP socket status)
+  - Maximum reconnection attempt limits to prevent infinite retry loops
+  - Real-time status updates during reconnection attempts
+
+### 🛡️ Improved Error Handling
+- **Connection Error Detection**: Comprehensive error pattern recognition
+  - Socket errors, timeouts, broken pipes, connection resets
+  - Protocol-specific error handling for both SFTP and FTP
+  - Clear error categorization between connection issues and file system errors
+  - Automatic retry logic for transient connection problems
+
+- **User Experience Enhancements**: Better feedback during connection issues
+  - "Reconnecting to server..." status messages during auto-recovery
+  - "Reconnected successfully" confirmation after restoration
+  - Clear error messages when manual reconnection is required
+  - No more silent connection failures or confusing error states
+
+### 🚀 Performance & Reliability
+- **Reduced Manual Interventions**: Eliminates need for manual disconnect/reconnect cycles
+- **Session Persistence**: Maintains user context and current directory during reconnections
+- **Operation Continuity**: File operations resume seamlessly after connection restoration
+- **Idle Timeout Handling**: Proactive detection and recovery from server-side idle disconnects
+
 ## [4.2.0] - 2025-07-05
 
 ### 📁 File & Folder Creation System
