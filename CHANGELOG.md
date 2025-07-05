@@ -5,6 +5,40 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.0] - 2025-07-06
+
+### 🎯 Enhanced Connection Management Interface
+- **New Compact View Mode**: Dramatically improved connection list efficiency for users with many connections
+  - Compact list view showing essential connection details in minimal space
+  - Each connection now displays as a single line with protocol, username, host, and port
+  - Toggle between compact and detailed card views with convenient view buttons
+  - Hover effects and modern visual enhancements for better user experience
+
+- **Advanced Search & Filtering**: Powerful real-time search functionality across all connection properties
+  - 🔍 Search by connection name, hostname, username, or protocol type
+  - Instant filtering as you type with live result updates
+  - Search result counter showing "X of Y connections" when filtering
+  - Case-insensitive search across all connection metadata
+
+- **Improved UI/UX Design**: Modern, responsive interface optimized for all screen sizes
+  - Click anywhere on compact connection cards to connect instantly
+  - Enhanced status indicators for connected/connecting states with visual icons
+  - Responsive grid layout that adapts to different window sizes
+  - Mobile-friendly design with touch-optimized controls
+  - Smooth animations and transitions for better visual feedback
+
+- **Better Connection Management**: Enhanced workflow for managing large connection lists
+  - Connection count display for better overview of saved connections
+  - Optimized button layouts with consistent spacing and sizing
+  - Improved accessibility with better contrast and readable text sizes
+  - Quick action buttons (Edit, Clone, Delete) easily accessible in both view modes
+
+### 🚀 Performance & Usability Improvements
+- **Faster Connection Discovery**: Quickly find specific connections among hundreds of saved entries
+- **Reduced Screen Space Usage**: Compact view allows viewing more connections without scrolling
+- **Enhanced Visual Hierarchy**: Clear distinction between connection states and information levels
+- **Streamlined Connection Workflow**: One-click connection from compact view reduces interaction steps
+
 ## [4.3.2] - 2025-07-05
 
 ### 🔧 Connection Configuration Persistence Fix

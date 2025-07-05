@@ -164,25 +164,145 @@
         .connection-list {
             margin-top: 20px;
         }
+
+        .search-filter-section {
+            background: var(--vscode-editor-inactiveSelectionBackground);
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 8px 12px;
+            background: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 3px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--vscode-focusBorder);
+        }
+
+        .view-toggle {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+            align-items: center;
+        }
+
+        .view-toggle-btn {
+            padding: 5px 10px;
+            background: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .view-toggle-btn.active {
+            background: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+        }
+
+        .view-toggle-btn:hover {
+            opacity: 0.9;
+        }
+
+        .connections-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 10px;
+        }
+
+        .connections-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
         
         .connection-item {
             background: var(--vscode-editor-inactiveSelectionBackground);
-            padding: 15px;
-            margin-bottom: 10px;
             border-radius: 5px;
             border-left: 3px solid var(--vscode-textLink-foreground);
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .connection-item:hover {
+            background: var(--vscode-list-hoverBackground);
+            transform: translateY(-1px);
         }
         
         .connection-item.connected {
             border-left-color: var(--vscode-testing-iconPassed);
             background: var(--vscode-inputValidation-infoBackground);
         }
+
+        /* Compact view styles */
+        .connection-item.compact {
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .connection-item.compact .connection-header {
+            margin: 0;
+            flex: 1;
+        }
+
+        .connection-item.compact .connection-name {
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 2px;
+        }
+
+        .connection-item.compact .connection-details {
+            color: var(--vscode-descriptionForeground);
+            font-size: 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 400px;
+        }
+
+        .connection-item.compact .connection-actions {
+            margin: 0;
+            padding: 0;
+            border: none;
+            display: flex;
+            gap: 5px;
+            flex-shrink: 0;
+        }
+
+        .connection-item.compact .button-group {
+            display: flex;
+            gap: 5px;
+        }
+
+        .connection-item.compact button {
+            padding: 4px 8px;
+            font-size: 11px;
+            min-width: auto;
+        }
+
+        /* Card view styles */
+        .connection-item.card {
+            padding: 15px;
+            margin-bottom: 0;
+        }
         
-        .connection-header {
+        .connection-item.card .connection-header {
             margin-bottom: 10px;
         }
         
-        .connection-actions {
+        .connection-item.card .connection-actions {
             margin-top: 10px;
             padding-top: 10px;
             border-top: 1px solid var(--vscode-panel-border);
@@ -192,10 +312,40 @@
             font-weight: bold;
             font-size: 16px;
         }
+
+        .connection-item.card .connection-name {
+            font-size: 16px;
+        }
         
         .connection-details {
             color: var(--vscode-descriptionForeground);
             font-size: 14px;
+        }
+
+        .connection-item.card .connection-details {
+            font-size: 14px;
+        }
+
+        .no-connections {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--vscode-descriptionForeground);
+        }
+
+        .connection-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .connection-status.connected {
+            color: var(--vscode-testing-iconPassed);
+        }
+
+        .connection-status.connecting {
+            color: var(--vscode-notificationsWarningIcon-foreground);
         }
         
         .button-group {
@@ -230,6 +380,30 @@
             .connection-item {
                 padding: 12px;
             }
+
+            .connections-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .connection-item.compact {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .connection-item.compact .connection-details {
+                max-width: none;
+                white-space: normal;
+            }
+
+            .connection-item.compact .connection-actions {
+                width: 100%;
+            }
+
+            .connection-item.compact .button-group {
+                justify-content: flex-start;
+                flex-wrap: wrap;
+            }
             
             .button-group {
                 justify-content: flex-start;
@@ -252,6 +426,14 @@
             h2 {
                 font-size: 1.2em;
             }
+
+            .view-toggle {
+                flex-wrap: wrap;
+            }
+
+            .search-filter-section {
+                padding: 10px;
+            }
         }
         
         @media (max-width: 480px) {
@@ -261,6 +443,24 @@
             
             .connection-item {
                 padding: 10px;
+            }
+
+            .connection-item.compact {
+                padding: 8px 10px;
+            }
+
+            .connection-item.compact .connection-name {
+                font-size: 13px;
+            }
+
+            .connection-item.compact .connection-details {
+                font-size: 11px;
+                line-height: 1.3;
+            }
+
+            .connection-item.compact button {
+                padding: 3px 6px;
+                font-size: 10px;
             }
             
             .button-group {
@@ -272,11 +472,30 @@
                 width: 100%;
                 margin-right: 0;
             }
+
+            .connection-item.compact .button-group {
+                flex-direction: row;
+                gap: 3px;
+            }
+
+            .connection-item.compact button {
+                width: auto;
+                flex: 1;
+            }
             
             .browse-btn {
                 width: auto;
                 align-self: flex-start;
                 max-width: 120px;
+            }
+
+            .view-toggle-btn {
+                padding: 3px 6px;
+                font-size: 11px;
+            }
+
+            .search-input {
+                font-size: 16px; /* Prevent zoom on iOS */
             }
         }
     </style>
@@ -413,6 +632,18 @@
                     <button type="button" id="cleanupBtn" class="danger">🗑️ Clean Up Temp Files</button>
                 </div>
             </div>
+
+            <!-- Search and Filter Section -->
+            <div class="search-filter-section">
+                <input type="text" id="searchInput" class="search-input" placeholder="🔍 Search connections by name, host, or username...">
+                <div class="view-toggle">
+                    <span style="font-size: 12px; color: var(--vscode-descriptionForeground); margin-right: 10px;">View:</span>
+                    <button type="button" id="compactViewBtn" class="view-toggle-btn active">📋 Compact</button>
+                    <button type="button" id="cardViewBtn" class="view-toggle-btn">📄 Cards</button>
+                    <span style="margin-left: auto; font-size: 12px; color: var(--vscode-descriptionForeground);" id="connectionCount">0 connections</span>
+                </div>
+            </div>
+            
             <div id="connectionsList"></div>
         </div>
     </div>
@@ -421,16 +652,22 @@
         const vscode = acquireVsCodeApi();
         let connections = [];
         let editingIndex = -1;
+        let filteredConnections = [];
+        let currentView = 'compact'; // 'compact' or 'card'
+        let searchTerm = '';
 
         // Global functions for onclick handlers
         function connectToConnection(index) {
+            // Find the actual index in the original connections array
+            const actualIndex = connections.findIndex(conn => conn === filteredConnections[index]);
+            
             // Set connecting state immediately
-            currentConnection.connectingIndex = index;
+            currentConnection.connectingIndex = actualIndex;
             renderConnections();
             
             vscode.postMessage({
                 type: 'connectToConnection',
-                index: index
+                index: actualIndex
             });
         }
 
@@ -441,17 +678,63 @@
         }
 
         function deleteConnection(index) {
+            // Find the actual index in the original connections array
+            const actualIndex = connections.findIndex(conn => conn === filteredConnections[index]);
+            
             vscode.postMessage({
                 type: 'deleteConnection',
-                index: index
+                index: actualIndex
             });
         }
 
         function cloneConnection(index) {
+            // Find the actual index in the original connections array
+            const actualIndex = connections.findIndex(conn => conn === filteredConnections[index]);
+            
             vscode.postMessage({
                 type: 'cloneConnection',
-                index: index
+                index: actualIndex
             });
+        }
+
+        function editConnection(index) {
+            // Find the actual index in the original connections array
+            const actualIndex = connections.findIndex(conn => conn === filteredConnections[index]);
+            editConnectionByActualIndex(actualIndex);
+        }
+
+        // Filter connections based on search term
+        function filterConnections() {
+            if (!searchTerm) {
+                filteredConnections = [...connections];
+            } else {
+                const term = searchTerm.toLowerCase();
+                filteredConnections = connections.filter(conn => {
+                    const name = (conn.name || '').toLowerCase();
+                    const host = (conn.host || '').toLowerCase();
+                    const username = (conn.username || '').toLowerCase();
+                    const protocol = (conn.protocol || '').toLowerCase();
+                    
+                    return name.includes(term) || 
+                           host.includes(term) || 
+                           username.includes(term) ||
+                           protocol.includes(term);
+                });
+            }
+            renderConnections();
+        }
+
+        // Update connection count
+        function updateConnectionCount() {
+            const countElement = document.getElementById('connectionCount');
+            const total = connections.length;
+            const filtered = filteredConnections.length;
+            
+            if (searchTerm && filtered < total) {
+                countElement.textContent = `${filtered} of ${total} connections`;
+            } else {
+                countElement.textContent = `${total} connection${total !== 1 ? 's' : ''}`;
+            }
         }
 
         // Load connections
@@ -462,7 +745,7 @@
             if (message.type === 'loadConnections') {
                 connections = message.data;
                 currentConnection = message.currentConnection || { isConnected: false };
-                renderConnections();
+                filterConnections(); // This will call renderConnections
             } else if (message.type === 'keyFileSelected') {
                 document.getElementById('keyPath').value = message.path;
             } else if (message.type === 'storedPassword') {
@@ -472,7 +755,7 @@
             } else if (message.type === 'editConnection') {
                 // Edit connection from welcome view
                 if (message.index >= 0 && message.index < connections.length) {
-                    editConnection(message.index);
+                    editConnectionByActualIndex(message.index);
                 }
             } else if (message.type === 'addNewConnection') {
                 // Add new connection from welcome view
@@ -728,6 +1011,27 @@
             document.getElementById('addNewConnectionBtn').style.display = 'none';
             showConnectionForm();
         });
+
+        // Search input handler
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            searchTerm = e.target.value.trim();
+            filterConnections();
+        });
+
+        // View toggle handlers
+        document.getElementById('compactViewBtn').addEventListener('click', () => {
+            currentView = 'compact';
+            document.getElementById('compactViewBtn').classList.add('active');
+            document.getElementById('cardViewBtn').classList.remove('active');
+            renderConnections();
+        });
+
+        document.getElementById('cardViewBtn').addEventListener('click', () => {
+            currentView = 'card';
+            document.getElementById('cardViewBtn').classList.add('active');
+            document.getElementById('compactViewBtn').classList.remove('active');
+            renderConnections();
+        });
         
         function resetForm() {
             resetFormData();
@@ -752,49 +1056,91 @@
 
         function renderConnections() {
             const container = document.getElementById('connectionsList');
+            updateConnectionCount();
             
-            if (connections.length === 0) {
-                container.innerHTML = '<p style="color: var(--vscode-descriptionForeground);">No connections saved yet.</p>';
+            if (filteredConnections.length === 0) {
+                if (connections.length === 0) {
+                    container.innerHTML = '<div class="no-connections"><p>No connections saved yet.</p><p>Click "Add New Connection" to get started.</p></div>';
+                } else {
+                    container.innerHTML = '<div class="no-connections"><p>No connections match your search.</p><p>Try a different search term.</p></div>';
+                }
                 return;
             }
 
-            container.innerHTML = connections.map((conn, index) => {
-                const isCurrentConnection = currentConnection.isConnected && currentConnection.connectionIndex === index;
-                const isConnecting = currentConnection.connectingIndex === index;
+            // Set container class based on view mode
+            container.className = currentView === 'compact' ? 'connections-list' : 'connections-grid';
+
+            container.innerHTML = filteredConnections.map((conn, index) => {
+                // Find if this connection is currently connected or connecting
+                const actualIndex = connections.findIndex(c => c === conn);
+                const isCurrentConnection = currentConnection.isConnected && currentConnection.connectionIndex === actualIndex;
+                const isConnecting = currentConnection.connectingIndex === actualIndex;
                 
                 let connectButtonHtml;
+                let statusHtml = '';
+                
                 if (isCurrentConnection) {
                     connectButtonHtml = '<button type="button" onclick="disconnect()" class="danger">Disconnect</button>';
+                    statusHtml = currentView === 'compact' 
+                        ? '<span class="connection-status connected">● Connected</span>'
+                        : '<span style="color: var(--vscode-testing-iconPassed); font-weight: bold;"> ● Connected</span>';
                 } else if (isConnecting) {
                     connectButtonHtml = `<button type="button" class="connecting" disabled>Connecting...</button>`;
+                    statusHtml = currentView === 'compact' 
+                        ? '<span class="connection-status connecting">⚡ Connecting...</span>'
+                        : '';
                 } else {
                     connectButtonHtml = `<button type="button" onclick="connectToConnection(${index})">Connect</button>`;
                 }
                 
-                const connectionStatus = isCurrentConnection 
-                    ? '<span style="color: var(--vscode-testing-iconPassed); font-weight: bold;"> ● Connected</span>'
-                    : '';
+                const protocol = (conn.protocol || 'sftp').toUpperCase();
+                const port = conn.port !== undefined ? conn.port : (conn.protocol === 'ftp' ? 21 : 22);
+                const authType = conn.authType?.toLowerCase() === 'key' ? 'SSH Key' : 'Password';
                 
-                return `
-                <div class="connection-item${isCurrentConnection ? ' connected' : ''}">
-                    <div class="connection-header">
-                        <div class="connection-name">${conn.name || 'Unnamed Connection'}${connectionStatus}</div>
-                        <div class="connection-details">
-                            ${(conn.protocol || 'sftp').toUpperCase()}://${conn.username}@${conn.host}:${conn.port !== undefined ? conn.port : (conn.protocol === 'ftp' ? 21 : 22)}
-                            <br>Path: ${conn.remotePath || '/'} | Auth: ${conn.authType?.toLowerCase() === 'key' ? 'SSH Key' : 'Password'}
-                            ${conn.authType?.toLowerCase() === 'key' ? `<br>Key: ${conn.keyPath || 'Not specified'}` : ''}
+                if (currentView === 'compact') {
+                    return `
+                    <div class="connection-item compact${isCurrentConnection ? ' connected' : ''}" onclick="connectToConnection(${index})">
+                        <div class="connection-header">
+                            <div class="connection-name">
+                                ${conn.name || 'Unnamed Connection'}
+                                ${statusHtml}
+                            </div>
+                            <div class="connection-details">
+                                ${protocol}://${conn.username || 'anonymous'}@${conn.host}:${port} • ${conn.remotePath || '/'} • ${authType}
+                            </div>
+                        </div>
+                        <div class="connection-actions" onclick="event.stopPropagation()">
+                            <div class="button-group">
+                                ${connectButtonHtml}
+                                <button type="button" onclick="editConnection(${index}); event.stopPropagation()">Edit</button>
+                                <button type="button" onclick="cloneConnection(${index}); event.stopPropagation()">Clone</button>
+                                <button type="button" onclick="deleteConnection(${index}); event.stopPropagation()" class="danger">Delete</button>
+                            </div>
                         </div>
                     </div>
-                    <div class="connection-actions">
-                        <div class="button-group">
-                            ${connectButtonHtml}
-                            <button type="button" onclick="editConnection(${index})">Edit</button>
-                            <button type="button" onclick="cloneConnection(${index})">Clone</button>
-                            <button type="button" onclick="deleteConnection(${index})" class="danger">Delete</button>
+                    `;
+                } else {
+                    return `
+                    <div class="connection-item card${isCurrentConnection ? ' connected' : ''}">
+                        <div class="connection-header">
+                            <div class="connection-name">${conn.name || 'Unnamed Connection'}${statusHtml}</div>
+                            <div class="connection-details">
+                                ${protocol}://${conn.username || 'anonymous'}@${conn.host}:${port}
+                                <br>Path: ${conn.remotePath || '/'} | Auth: ${authType}
+                                ${conn.authType?.toLowerCase() === 'key' ? `<br>Key: ${conn.keyPath || 'Not specified'}` : ''}
+                            </div>
+                        </div>
+                        <div class="connection-actions">
+                            <div class="button-group">
+                                ${connectButtonHtml}
+                                <button type="button" onclick="editConnection(${index})">Edit</button>
+                                <button type="button" onclick="cloneConnection(${index})">Clone</button>
+                                <button type="button" onclick="deleteConnection(${index})" class="danger">Delete</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-                `;
+                    `;
+                }
             }).join('');
         }
 
@@ -808,7 +1154,7 @@
             document.getElementById('connectionFormSection').style.display = 'none';
         }
 
-        async function editConnection(index) {
+        async function editConnectionByActualIndex(index) {
             const conn = connections[index];
             editingIndex = index;
 
@@ -927,6 +1273,9 @@
             // Trigger protocol change to reset anonymous option visibility
             const protocolEvent = new Event('change');
             document.getElementById('protocol').dispatchEvent(protocolEvent);
+            
+            // Update filtered connections to ensure UI is up to date
+            filterConnections();
         }
     </script>
 </body>

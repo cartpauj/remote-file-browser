@@ -20,7 +20,11 @@ Edit remote files seamlessly in VSCode/Cursor with instant access and automatic 
 
 🗂️ **Smart File Organization** - Organized temporary file storage prevents conflicts between different servers
 
-🖥️ **Intuitive GUI Interface** - Beautiful, user-friendly connection manager with visual forms instead of complex configuration files
+🖥️ **Enhanced Connection Manager** - Beautiful, responsive interface with advanced search and dual view modes:
+  - **🔍 Real-time Search**: Instantly find connections by name, host, username, or protocol
+  - **📋 Compact View**: Efficient single-line display for managing hundreds of connections
+  - **📄 Card View**: Detailed connection information with full configuration visibility
+  - **📱 Mobile-Responsive**: Touch-friendly design that adapts to any screen size
 
 🎯**Context Menu Integration** - All operations available via right-click menus and command palette
 
