@@ -5,6 +5,43 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.0] - 2025-07-05
+
+### 🔍 Smart File Search & Filtering
+- **Real-time File Search**: Added intelligent search functionality to quickly filter files and directories
+  - Search icon (🔍) in Remote Files toolbar for easy access
+  - Clear icon (🗙) appears when search is active for quick filter removal
+  - Case-insensitive partial matching finds files containing search terms
+  - Maintains directory structure and sorting during search
+  - Works on current directory content with instant results
+  - Status messages confirm search activation and clearing
+
+### 🎨 Enhanced File Icon System
+- **VS Code Theme-Compatible Icons**: Revolutionized file icon display with intelligent type detection
+  - Smart file extension mapping to appropriate VS Code theme icons
+  - Code files: JavaScript, TypeScript, Python, Java, C/C++, PHP, Ruby, Go, Rust, Swift, Kotlin
+  - Web files: HTML, CSS, SCSS, SASS, XML, JSON, YAML with specialized icons
+  - Media files: Images (PNG, JPG, SVG, etc.) with media-specific icons
+  - Documents: PDF, DOC, TXT, Markdown with document-themed icons
+  - Archives: ZIP, RAR, 7Z, TAR with compression-themed icons
+  - Config files: Settings, environment, Git files with gear icons
+  - Database files: SQL, DB, SQLite with database icons
+  - Terminal scripts: Shell, Batch, PowerShell with terminal icons
+  - Folders: Dynamic folder/folder-opened icons based on expansion state
+  - Generic fallback: Unknown file types use standard file icon
+
+### 🚀 User Experience Improvements
+- **Enhanced Visual Organization**: File types are immediately recognizable through consistent iconography
+- **Improved Navigation**: Search functionality makes large directories manageable
+- **Professional Interface**: Icons match VS Code's native file explorer for seamless integration
+- **Accessibility**: Better visual cues help users identify file types at a glance
+
+### 🛠️ Technical Enhancements
+- **Resource URI Support**: Files now have proper resource URIs for enhanced VS Code integration
+- **Context-Aware Commands**: Search and clear commands appear contextually in toolbar
+- **State Management**: Search state properly tracked with VS Code context system
+- **Performance Optimized**: File filtering operates efficiently on large directory listings
+
 ## [4.0.0] - 2025-06-28
 
 ### 🛡️ Operation Protection System

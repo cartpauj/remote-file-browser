@@ -34,6 +34,10 @@ Edit remote files seamlessly in VSCode/Cursor with instant access and automatic 
 
 🛡️ **Operation Protection** - Advanced concurrent operation prevention system protects against duplicate file operations and connection conflicts
 
+🔍 **Smart File Search** - Built-in file filtering with real-time search to quickly find files in large directories
+
+🎨 **Enhanced File Icons** - Intelligent file type detection with VS Code theme-compatible icons for better visual organization
+
 ## Getting Started
 
 ### Initial Setup
@@ -188,6 +192,33 @@ All file operations are available by **right-clicking** on files or directories 
 - **"Move"** - Move the file or directory to a new path
 - **"Copy"** - Copy the file or directory to a new location
 - **"Delete"** - Delete the file or directory from the server
+
+### Searching and Filtering Files
+
+The Remote File Browser includes a powerful search feature to help you quickly find files in large directories:
+
+#### How to Search
+1. **Click the search icon** (🔍) in the Remote Files toolbar when connected
+2. **Type your search term** in the input box that appears
+3. **Press Enter** or click OK to apply the filter
+4. The file tree will now show only files and folders matching your search term
+
+#### Search Features
+- **Real-time filtering**: Search results update immediately
+- **Case-insensitive**: Searches work regardless of capitalization
+- **Partial matching**: Finds files containing your search term anywhere in the name
+- **Works on current directory**: Only searches files in the currently displayed directory
+- **Maintains folder structure**: Directory organization is preserved in search results
+
+#### Clearing Search
+- **Click the clear icon** (🗙) in the toolbar to remove the search filter
+- **Or search for an empty term** to show all files again
+- The search icon changes to a clear icon when a filter is active
+
+#### Search Tips
+- Use specific file extensions to find file types: `.js`, `.py`, `.txt`
+- Search for partial names: `config` will find `config.json`, `app.config`, etc.
+- Combine with navigation: Search in one folder, then navigate to another to search there
 
 ### Renaming and Deleting Remote Files
 You can rename or delete files and directories directly on the remote server:

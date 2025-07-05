@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { ConnectionManager } from './connectionManager';
 
 export class RemoteFileItem extends vscode.TreeItem {
@@ -19,10 +20,103 @@ export class RemoteFileItem extends vscode.TreeItem {
                 title: 'Open File',
                 arguments: [this]
             };
-            this.iconPath = new vscode.ThemeIcon('file');
+            
+            // Use file extension to determine appropriate icon
+            this.iconPath = this.getFileIcon(this.label);
+            
+            // Set resourceUri to enable VS Code's built-in file icon theming
+            this.resourceUri = vscode.Uri.parse(`remote-file:///${this.label}`);
         } else {
-            this.iconPath = new vscode.ThemeIcon('folder');
+            // Use folder/folder-opened icons for directories
+            this.iconPath = this.collapsibleState === vscode.TreeItemCollapsibleState.Expanded 
+                ? new vscode.ThemeIcon('folder-opened')
+                : new vscode.ThemeIcon('folder');
         }
+    }
+    
+    private getFileIcon(fileName: string): vscode.ThemeIcon {
+        const ext = path.extname(fileName).toLowerCase();
+        
+        // Map common file extensions to VS Code's built-in theme icons
+        const iconMap: { [key: string]: string } = {
+            // Code files
+            '.js': 'symbol-method',
+            '.ts': 'symbol-method', 
+            '.jsx': 'symbol-method',
+            '.tsx': 'symbol-method',
+            '.py': 'symbol-method',
+            '.java': 'symbol-method',
+            '.c': 'symbol-method',
+            '.cpp': 'symbol-method',
+            '.cs': 'symbol-method',
+            '.php': 'symbol-method',
+            '.rb': 'symbol-method',
+            '.go': 'symbol-method',
+            '.rs': 'symbol-method',
+            '.swift': 'symbol-method',
+            '.kt': 'symbol-method',
+            
+            // Web files
+            '.html': 'symbol-property',
+            '.htm': 'symbol-property',
+            '.css': 'symbol-color',
+            '.scss': 'symbol-color',
+            '.sass': 'symbol-color',
+            '.less': 'symbol-color',
+            '.xml': 'symbol-property',
+            '.json': 'symbol-object',
+            '.yaml': 'symbol-object',
+            '.yml': 'symbol-object',
+            
+            // Images
+            '.png': 'file-media',
+            '.jpg': 'file-media',
+            '.jpeg': 'file-media',
+            '.gif': 'file-media',
+            '.svg': 'file-media',
+            '.ico': 'file-media',
+            '.bmp': 'file-media',
+            '.webp': 'file-media',
+            
+            // Documents
+            '.pdf': 'file-pdf',
+            '.doc': 'file-text',
+            '.docx': 'file-text',
+            '.txt': 'file-text',
+            '.md': 'markdown',
+            '.readme': 'markdown',
+            
+            // Archives
+            '.zip': 'file-zip',
+            '.rar': 'file-zip',
+            '.7z': 'file-zip',
+            '.tar': 'file-zip',
+            '.gz': 'file-zip',
+            
+            // Config files
+            '.config': 'settings-gear',
+            '.conf': 'settings-gear',
+            '.ini': 'settings-gear',
+            '.env': 'settings-gear',
+            '.gitignore': 'settings-gear',
+            '.gitconfig': 'settings-gear',
+            
+            // Database
+            '.sql': 'database',
+            '.db': 'database',
+            '.sqlite': 'database',
+            
+            // Others
+            '.log': 'output',
+            '.sh': 'terminal',
+            '.bat': 'terminal',
+            '.cmd': 'terminal',
+            '.ps1': 'terminal'
+        };
+        
+        // Return specific icon if extension is mapped, otherwise use generic file icon
+        const iconName = iconMap[ext] || 'file';
+        return new vscode.ThemeIcon(iconName);
     }
 }
 
@@ -30,11 +124,37 @@ export class RemoteFileProvider implements vscode.TreeDataProvider<RemoteFileIte
     private _onDidChangeTreeData: vscode.EventEmitter<RemoteFileItem | undefined | null | void> = new vscode.EventEmitter<RemoteFileItem | undefined | null | void>();
     readonly onDidChangeTreeData: vscode.Event<RemoteFileItem | undefined | null | void> = this._onDidChangeTreeData.event;
     private currentDirectory: string | undefined;
+    private directoryFilters: Map<string, string> = new Map(); // Her klasör için ayrı filtre
+    private directoryContents: Map<string, any[]> = new Map(); // Orijinal dosya listelerini sakla
 
     constructor(private connectionManager: ConnectionManager) {}
 
     refresh(): void {
         this._onDidChangeTreeData.fire();
+    }
+
+    setDirectoryFilter(directoryPath: string, filter: string): void {
+        if (filter.trim() === '') {
+            this.directoryFilters.delete(directoryPath);
+        } else {
+            this.directoryFilters.set(directoryPath, filter.toLowerCase());
+        }
+        this.refresh();
+    }
+
+    getDirectoryFilter(directoryPath: string): string {
+        return this.directoryFilters.get(directoryPath) || '';
+    }
+
+    clearDirectoryFilter(directoryPath: string): void {
+        this.directoryFilters.delete(directoryPath);
+        this.refresh();
+    }
+
+    clearAllCaches(): void {
+        this.directoryContents.clear();
+        this.directoryFilters.clear();
+        this.refresh();
     }
 
     navigateToParent(): void {
@@ -114,25 +234,41 @@ export class RemoteFileProvider implements vscode.TreeDataProvider<RemoteFileIte
         try {
             const path = element ? element.path : this.getCurrentDirectory();
             
-            // For root directory listing (initial load), show appropriate status
-            const isRootListing = !element && path === this.getCurrentDirectory();
+            // Önbelleğe bakıp veri var mı kontrol et
+            let files = this.directoryContents.get(path);
             
-            const files = await this.connectionManager.listFiles(path);
-            
-            // Clear loading status after successful root directory listing
-            if (isRootListing) {
-                const connectionInfo = this.connectionManager.getCurrentConnectionInfo();
-                if (connectionInfo.isConnected && connectionInfo.host) {
-                    // Only show manual success for FTP (SFTP uses real list operation events)
-                    const statusManager = this.connectionManager.getStatusManager();
-                    if (statusManager && connectionInfo.config?.protocol === 'ftp') {
-                        statusManager.showSuccess(connectionInfo.host);
+            if (!files) {
+                // İlk kez bu klasör açılıyor, FTP'den çek
+                const isRootListing = !element && path === this.getCurrentDirectory();
+                files = await this.connectionManager.listFiles(path);
+                
+                // Önbelleğe kaydet
+                this.directoryContents.set(path, files);
+                
+                // Clear loading status after successful root directory listing
+                if (isRootListing) {
+                    const connectionInfo = this.connectionManager.getCurrentConnectionInfo();
+                    if (connectionInfo.isConnected && connectionInfo.host) {
+                        const statusManager = this.connectionManager.getStatusManager();
+                        if (statusManager && connectionInfo.config?.protocol === 'ftp') {
+                            statusManager.showSuccess(connectionInfo.host);
+                        }
                     }
                 }
             }
             
+            // Bu klasör için filtre var mı kontrol et
+            const filter = this.directoryFilters.get(path);
+            let filteredFiles = files;
+            
+            if (filter) {
+                filteredFiles = files.filter(file => 
+                    file.name.toLowerCase().includes(filter)
+                );
+            }
+            
             // Sort files: directories first (alphabetically), then files (alphabetically)
-            const sortedFiles = files.sort((a, b) => {
+            const sortedFiles = filteredFiles.sort((a, b) => {
                 if (a.isDirectory && !b.isDirectory) return -1;
                 if (!a.isDirectory && b.isDirectory) return 1;
                 return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
@@ -144,12 +280,19 @@ export class RemoteFileProvider implements vscode.TreeDataProvider<RemoteFileIte
                     ? vscode.TreeItemCollapsibleState.Collapsed 
                     : vscode.TreeItemCollapsibleState.None;
                 
-                return new RemoteFileItem(
+                const item = new RemoteFileItem(
                     file.name,
                     fullPath,
                     file.isDirectory,
                     collapsibleState
                 );
+                
+                // Her klasör için arama ikonu ekle
+                if (file.isDirectory) {
+                    item.contextValue = 'directory';
+                }
+                
+                return item;
             });
         } catch (error) {
             // Clear loading status on error and show error

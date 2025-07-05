@@ -198,6 +198,14 @@ export function activate(context: vscode.ExtensionContext) {
             await addNewConnectionFromWelcome();
         }),
 
+        vscode.commands.registerCommand('remoteFileBrowser.searchInDirectory', async (item) => {
+            await searchInDirectory(item);
+        }),
+
+        vscode.commands.registerCommand('remoteFileBrowser.clearDirectorySearch', (item) => {
+            clearDirectorySearch(item);
+        }),
+
         vscode.commands.registerCommand('remoteFileBrowser.openUserManual', async () => {
             await openUserManual(context);
         }),
@@ -479,6 +487,10 @@ async function disconnectFromRemoteServer() {
         
         await connectionManager.disconnect();
         remoteFileProvider.resetToDefaultDirectory();
+        
+        // Önbelleği ve filtreleri temizle
+        remoteFileProvider.clearAllCaches();
+        
         await vscode.commands.executeCommand('setContext', 'remoteFileBrowser.connected', false);
         updateNavigationContext();
         remoteFileProvider.refresh();
@@ -1791,6 +1803,45 @@ async function openUserManual(context: vscode.ExtensionContext) {
     } catch (error) {
         vscode.window.showErrorMessage('Failed to open user manual: readme.md not found');
     }
+}
+
+async function searchInDirectory(item: RemoteFileItem): Promise<void> {
+    if (!connectionManager.isConnected()) {
+        vscode.window.showErrorMessage('Not connected to a remote server');
+        return;
+    }
+
+    if (!item || !item.isDirectory) {
+        vscode.window.showErrorMessage('Please select a directory to search in');
+        return;
+    }
+
+    const currentFilter = remoteFileProvider.getDirectoryFilter(item.path);
+    const searchTerm = await vscode.window.showInputBox({
+        prompt: `Search files in: ${item.label}`,
+        placeHolder: 'Enter search term...',
+        value: currentFilter
+    });
+
+    if (searchTerm !== undefined) {
+        if (searchTerm.trim() === '') {
+            remoteFileProvider.clearDirectoryFilter(item.path);
+            vscode.window.showInformationMessage(`Search cleared for: ${item.label}`);
+        } else {
+            remoteFileProvider.setDirectoryFilter(item.path, searchTerm.trim());
+            vscode.window.showInformationMessage(`Filtering "${item.label}" by: "${searchTerm.trim()}"`);
+        }
+    }
+}
+
+function clearDirectorySearch(item: RemoteFileItem): void {
+    if (!item || !item.isDirectory) {
+        vscode.window.showErrorMessage('Please select a directory');
+        return;
+    }
+    
+    remoteFileProvider.clearDirectoryFilter(item.path);
+    vscode.window.showInformationMessage(`Search cleared for: ${item.label}`);
 }
 
 export function deactivate() {
