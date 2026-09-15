@@ -555,6 +555,16 @@ When you open remote files, they're downloaded to your local system in an organi
 - **"Host key verification failed"**: Accept the host key when prompted
 - **"Failed to convert PPK file"**: Check that your PPK file is valid and enter the correct passphrase if the key is encrypted
 
+### FTP/FTPS Issues
+- **"PASV returned another host ... for data transfer"**: The FTP server told the
+  extension to open its data connection to a different address than the one you
+  connected to. This is refused by default, because it is how FTP bounce attacks
+  work. It usually means a server behind NAT is misconfigured and advertising its
+  internal IP — the fix belongs on the server (set its external/masquerade
+  address), or enable EPSV, which is not affected by this.
+- **"425 TLS session of data connection not resumed"**: Fixed in 4.0.1. Update the
+  extension.
+
 ### Keyring Issues (Linux)
 If you see "keyring couldn't be identified":
 - Install a keyring manager: `sudo apt install gnome-keyring` (Ubuntu) or similar
@@ -683,10 +693,12 @@ Future versions will include better multi-window isolation to prevent these issu
    npm run package
    ```
 
+   The production build first verifies that `package.json` and
+   `package-lock.json` agree on the version, and fails if they don't. If that
+   happens, run `npm run sync-version` and commit the updated lockfile. Bump
+   versions with `npm version patch|minor|major`, never by hand — see
+   [RELEASE.md](RELEASE.md).
+
 4. **After making changes**:
    - Use "Developer: Reload Window" to reload the extension
    - Or restart VSCode/Cursor completely
-
----
-
-*For technical details and development information, see PROJECT-SCOPE.md*

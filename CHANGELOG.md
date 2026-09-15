@@ -5,6 +5,30 @@ All notable changes to the "Remote File Browser" extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.1] - 2026-09-14
+
+### 🔒 FTPS Fixes
+- **Fixed FTPS connections failing against servers that require TLS session reuse**
+  - Updated `basic-ftp` from 5.0.5 to 6.2.1
+  - Data connections now use and renew TLS 1.3 session tickets, so servers such as
+    recent FileZilla Server versions no longer reject the data connection
+  - Fixes implicit FTPS failing with *"425 TLS session of data connection not resumed"*
+    on current Node.js runtimes
+  - Resolves [#4](https://github.com/cartpauj/remote-file-browser/issues/4)
+
+### 🔑 SFTP Fixes
+- **Updated `pure-js-sftp` to 5.0.2**, which fixes SFTP authentication failing with
+  RSA keys on Windows
+
+### 🛡️ Security
+- Picks up a `basic-ftp` fix for excessive CPU use when parsing a directory listing
+- Passive data transfers now refuse a server that redirects them to a different host
+  than the one you connected to (protection against FTP bounce attacks)
+
+### 🧹 Maintenance
+- `package.json` and `package-lock.json` versions are now verified on every
+  production build, so they can no longer drift apart
+
 ## [4.0.0] - 2025-06-28
 
 ### 🛡️ Operation Protection System
